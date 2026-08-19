@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  clearChannel,
   isDGLabMessage,
   parseFeedback,
   parseStrengthFeedback,
   qrPayload,
   relayWsUrl,
-  strengthNudge,
+  sendClear,
   strengthSet,
   type StrengthFeedback,
-} from "./protocol";
+} from "../lib/protocol";
 
 export type ConnState =
   | "idle"
@@ -39,29 +38,25 @@ const EMPTY_STRENGTH: StrengthFeedback = {
   bLimit: 200,
 };
 
-export function useRelay(onEvent: (event: RelayEvent) => void) {
+export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
   const [state, setState] = useState<ConnState>("idle");
   const [clientId, setClientId] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string | null>(null);
-  const [strength, setStrength] = useState<StrengthFeedback>(EMPTY_STRENGTH);
+  const [remoteStrength, setRemoteStrength] =
+    useState<StrengthFeedback>(EMPTY_STRENGTH);
   const [error, setError] = useState<string | null>(null);
   const [relayOrigin] = useState(defaultRelayOrigin);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const idsRef = useRef({ clientId: null as string | null, targetId: null as string | null });
+  const idsRef = useRef({
+    clientId: null as string | null,
+    targetId: null as string | null,
+  });
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
   const emit = useCallback((event: RelayEvent) => {
     onEventRef.current(event);
-  }, []);
-
-  const cleanup = useCallback((next: ConnState) => {
-    setState(next);
-    if (next !== "paired" && next !== "waiting") {
-      setTargetId(null);
-      idsRef.current.targetId = null;
-    }
   }, []);
 
   const sendRaw = useCallback((message: string) => {
@@ -88,7 +83,6 @@ export function useRelay(onEvent: (event: RelayEvent) => void) {
         return;
       }
       if (!isDGLabMessage(parsed)) return;
-
       if (parsed.type === "heartbeat") return;
 
       if (parsed.type === "bind") {
@@ -96,7 +90,11 @@ export function useRelay(onEvent: (event: RelayEvent) => void) {
           setClientId(parsed.clientId);
           idsRef.current.clientId = parsed.clientId;
           setState("waiting");
-          emit({ kind: "info", title: "已连接中继", description: "用 APP 扫码配对" });
+          emit({
+            kind: "info",
+            title: "已连接中继",
+            description: "用 APP 扫码配对",
+          });
           return;
         }
         if (parsed.message === "200" && parsed.targetId) {
@@ -108,15 +106,17 @@ export function useRelay(onEvent: (event: RelayEvent) => void) {
         }
         if (parsed.message === "400") {
           setError("该控制端已被绑定");
-          cleanup("error");
+          setState("error");
           emit({ kind: "error", title: "配对失败", description: "ID 已被绑定" });
         }
         return;
       }
 
       if (parsed.type === "break") {
+        setTargetId(null);
+        idsRef.current.targetId = null;
+        setState("disconnected");
         emit({ kind: "warning", title: "APP 已断开" });
-        cleanup("disconnected");
         return;
       }
 
@@ -132,7 +132,7 @@ export function useRelay(onEvent: (event: RelayEvent) => void) {
       if (parsed.type === "msg") {
         const fb = parseStrengthFeedback(parsed.message);
         if (fb) {
-          setStrength(fb);
+          setRemoteStrength(fb);
           return;
         }
         const btn = parseFeedback(parsed.message);
@@ -145,7 +145,7 @@ export function useRelay(onEvent: (event: RelayEvent) => void) {
         }
       }
     },
-    [cleanup, emit],
+    [emit],
   );
 
   const disconnect = useCallback(() => {
@@ -155,22 +155,26 @@ export function useRelay(onEvent: (event: RelayEvent) => void) {
     setClientId(null);
     setTargetId(null);
     idsRef.current = { clientId: null, targetId: null };
-    setStrength(EMPTY_STRENGTH);
+    setRemoteStrength(EMPTY_STRENGTH);
     setError(null);
     setState("idle");
-  }, []);
+    emit({ kind: "info", title: "已断开中继" });
+  }, [emit]);
 
   const connect = useCallback(() => {
-    disconnect();
+    const prev = wsRef.current;
+    wsRef.current = null;
+    if (prev && prev.readyState < WebSocket.CLOSING) prev.close(1000, "reconnect");
+
+    setClientId(null);
+    setTargetId(null);
+    idsRef.current = { clientId: null, targetId: null };
+    setRemoteStrength(EMPTY_STRENGTH);
     setState("connecting");
     setError(null);
 
     const ws = new WebSocket(relayWsUrl(relayOrigin));
     wsRef.current = ws;
-
-    ws.onopen = () => {
-      if (wsRef.current !== ws) return;
-    };
 
     ws.onmessage = (ev) => {
       if (wsRef.current !== ws) return;
@@ -180,15 +184,16 @@ export function useRelay(onEvent: (event: RelayEvent) => void) {
     ws.onerror = () => {
       if (wsRef.current !== ws) return;
       setError("WebSocket 连接失败");
+      setState("error");
       emit({ kind: "error", title: "连接失败" });
     };
 
     ws.onclose = () => {
       if (wsRef.current !== ws) return;
       wsRef.current = null;
-      setState((prev) => (prev === "idle" ? prev : "disconnected"));
+      setState((prevState) => (prevState === "idle" ? prevState : "disconnected"));
     };
-  }, [disconnect, emit, handleMessage, relayOrigin]);
+  }, [emit, handleMessage, relayOrigin]);
 
   useEffect(() => {
     return () => {
@@ -198,48 +203,34 @@ export function useRelay(onEvent: (event: RelayEvent) => void) {
     };
   }, []);
 
-  const setStrengthValue = useCallback(
-    (channel: 1 | 2, value: number) => {
-      if (!sendRaw(strengthSet(channel, value))) {
-        emit({ kind: "warning", title: "尚未配对，无法下发" });
-      }
-    },
-    [emit, sendRaw],
-  );
-
-  const nudge = useCallback(
-    (channel: 1 | 2, up: boolean) => {
-      if (!sendRaw(strengthNudge(channel, up))) {
-        emit({ kind: "warning", title: "尚未配对，无法下发" });
-      }
-    },
-    [emit, sendRaw],
-  );
-
   const emergencyStop = useCallback(() => {
     const ok =
       sendRaw(strengthSet(1, 0)) &&
       sendRaw(strengthSet(2, 0)) &&
-      sendRaw(clearChannel(1)) &&
-      sendRaw(clearChannel(2));
-    if (ok) emit({ kind: "success", title: "已急停", description: "A/B 强度清零并清空波形" });
-    else emit({ kind: "warning", title: "尚未配对，无法急停" });
+      sendRaw(sendClear(1)) &&
+      sendRaw(sendClear(2));
+    if (ok) {
+      setRemoteStrength((s) => ({ ...s, a: 0, b: 0 }));
+      emit({
+        kind: "success",
+        title: "已归零并清除波形",
+      });
+    } else {
+      emit({ kind: "warning", title: "尚未配对，无法下发急停" });
+    }
   }, [emit, sendRaw]);
-
-  const qrUrl = clientId ? qrPayload(relayOrigin, clientId) : null;
 
   return {
     state,
     clientId,
     targetId,
-    strength,
+    remoteStrength,
     error,
     relayOrigin,
-    qrUrl,
+    qrUrl: clientId ? qrPayload(relayOrigin, clientId) : null,
+    sendRaw,
     connect,
     disconnect,
-    setStrengthValue,
-    nudge,
     emergencyStop,
   };
 }

@@ -7,8 +7,12 @@ body,
   min-height: 100%;
 }
 
+html {
+  color-scheme: light dark;
+}
+
 body {
   margin: 0;
-  background: var(--color-kumo-sunken, #0b0d12);
-  color: var(--color-kumo-normal);
+  background: var(--color-kumo-canvas);
+  color: var(--text-color-kumo-default);
 }

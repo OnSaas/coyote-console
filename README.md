@@ -14,7 +14,17 @@ Vite + React + TypeScript + [@cloudflare/kumo](https://kumo-ui.com) + Phosphor�
 - A/B 通道强度（Slider + 输入 + ±1）
 - 急停（强度清零 + `clear-1/2`）
 
-源码在 `web/`，构建产物进 `public/`，由 Workers Assets 托管。WS 与 `/health` 仍走 Worker（`run_worker_first`）。
+源码在 `web/`：
+
+```
+web/src/
+├── components/   Header PairingCard SessionCard StrengthPanel EmergencyStop
+├── hooks/        useCoyoteSocket useStrength
+├── lib/          protocol.ts
+└── App.tsx
+```
+
+构建产物进 `public/`，由 Workers Assets 托管。WS 与 `/health` 仍走 Worker（`run_worker_first`）。
 
 本地：先 `pnpm dev:worker`，再 `pnpm dev`。开发态默认连 `ws://127.0.0.1:8787`（`VITE_RELAY_ORIGIN` 可改）。
 

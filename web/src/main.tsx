@@ -1,6 +1,5 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Toasty } from "@cloudflare/kumo";
 import App from "./App";
 import "./index.css";
 
@@ -9,8 +8,6 @@ if (!root) throw new Error("root missing");
 
 createRoot(root).render(
   <StrictMode>
-    <Toasty>
-      <App />
-    </Toasty>
+    <App />
   </StrictMode>,
 );

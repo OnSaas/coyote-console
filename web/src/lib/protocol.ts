@@ -2,6 +2,7 @@ export const QR_PREFIX =
   "https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#";
 
 export const MAX_STRENGTH = 200;
+export const STRENGTH_THROTTLE_MS = 120;
 
 export type MessageType = "bind" | "msg" | "heartbeat" | "break" | "error";
 
@@ -32,16 +33,20 @@ export function qrPayload(relayOrigin: string, clientId: string): string {
   return `${QR_PREFIX}${ws}/${clientId}`;
 }
 
-export function strengthSet(channel: 1 | 2, value: number): string {
+export function sendStrength(channel: 1 | 2, mode: 0 | 1 | 2, value: number): string {
   const n = Math.max(0, Math.min(MAX_STRENGTH, Math.round(value)));
-  return `strength-${channel}+2+${n}`;
+  return `strength-${channel}+${mode}+${n}`;
+}
+
+export function strengthSet(channel: 1 | 2, value: number): string {
+  return sendStrength(channel, 2, value);
 }
 
 export function strengthNudge(channel: 1 | 2, up: boolean): string {
-  return `strength-${channel}+${up ? 1 : 0}+1`;
+  return sendStrength(channel, up ? 1 : 0, 1);
 }
 
-export function clearChannel(channel: 1 | 2): string {
+export function sendClear(channel: 1 | 2): string {
   return `clear-${channel}`;
 }
 
