@@ -1,4 +1,3 @@
-import { QR_PREFIX } from "./types";
 import { Session } from "./Session";
 
 export { Session };
@@ -19,13 +18,7 @@ export default {
         return Response.json({ ok: true, service: "coyote-console" });
       }
 
-      if (request.method === "GET" && url.pathname === "/") {
-        return new Response(landing(url.origin), {
-          headers: { "content-type": "text/plain; charset=utf-8" },
-        });
-      }
-
-      return new Response("Not Found", { status: 404 });
+      return env.ASSETS.fetch(request);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(
@@ -48,7 +41,6 @@ function routeWebSocket(
 ): Promise<Response> | Response {
   const segs = url.pathname.split("/").filter(Boolean);
 
-  // 控制端：wss://host/  → 新建 session，clientId = DO name
   if (segs.length === 0) {
     const clientId = crypto.randomUUID();
     const dest = new URL(request.url);
@@ -58,7 +50,6 @@ function routeWebSocket(
     return env.SESSION.getByName(clientId).fetch(new Request(dest, request));
   }
 
-  // APP / 重连：wss://host/<controllerId>  （二维码要求中间不能再插路径）
   if (segs.length === 1 && UUID_RE.test(segs[0])) {
     const sessionId = segs[0];
     const dest = new URL(request.url);
@@ -70,17 +61,4 @@ function routeWebSocket(
   return new Response("Expected wss://host or wss://host/<uuid>", {
     status: 400,
   });
-}
-
-function landing(origin: string): string {
-  const ws = origin.replace(/^http/, "ws");
-  return [
-    "coyote-console  DG-Lab Socket V3 relay",
-    "",
-    "控制端:  " + ws + "/",
-    "APP:     " + ws + "/<controllerId>",
-    "二维码:  " + QR_PREFIX + ws + "/<controllerId>",
-    "health:  " + origin + "/health",
-    "",
-  ].join("\n");
 }

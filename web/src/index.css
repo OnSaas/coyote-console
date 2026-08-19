@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@import "@cloudflare/kumo/styles";
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-kumo-sunken, #0b0d12);
+  color: var(--color-kumo-normal);
+}

@@ -1,8 +1,22 @@
 # coyote-console
 
-Cloudflare Workers + Durable Objects + WebSocket Hibernation，DG-Lab Socket V3 中继。
+Cloudflare Workers + Durable Objects + WebSocket Hibernation，DG-Lab Socket V3 中继 + Kumo 最小控制台。
+
+线上：https://coyote-console.onw.workers.dev
 
 一对 session 一个 DO：控制端连 `wss://host/`，APP 扫码连 `wss://host/<controllerId>`。
+
+## 前端
+
+Vite + React + TypeScript + [@cloudflare/kumo](https://kumo-ui.com) + Phosphor。
+
+- 连接状态 / 扫码配对
+- A/B 通道强度（Slider + 输入 + ±1）
+- 急停（强度清零 + `clear-1/2`）
+
+源码在 `web/`，构建产物进 `public/`，由 Workers Assets 托管。WS 与 `/health` 仍走 Worker（`run_worker_first`）。
+
+本地：先 `pnpm dev:worker`，再 `pnpm dev`。开发态默认连 `ws://127.0.0.1:8787`（`VITE_RELAY_ORIGIN` 可改）。
 
 ## 协议（官方 V3）
 
@@ -24,11 +38,10 @@ https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#wss://<host>/<controll
 pnpm install
 pnpm cf-typegen
 pnpm typecheck
+pnpm dev:worker
 pnpm dev
 pnpm deploy
 ```
-
-`public/` 留给后续控制台前端。
 
 ## 账号
 
