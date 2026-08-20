@@ -12,6 +12,10 @@ Cloudflare Workers + Durable Objects，DG-Lab **Socket V4** 网页主控。被�
 
 `/api/*`、`/health`、`/ws`、`/v4` 走 Worker；页面走 Assets。
 
+## 界面
+
+侧栏：控制台 / 配对 / 波形库 / 记录 / 设置。顶栏急停常驻。记录存在本机 localStorage。
+
 ## 命令
 
 ```bash
