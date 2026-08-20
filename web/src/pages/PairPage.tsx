@@ -37,14 +37,25 @@ export function PairPage() {
         <Step n={3} active={step === 3} done={step === 3} title="完成" />
       </ol>
 
-      {relay.state === "paired" ? (
+      {relay.state === "paired" && !relay.slotId ? (
+        <section className="dg-panel px-5 py-4">
+          <Text variant="body" bold>
+            等待设备
+          </Text>
+          <Text variant="secondary" size="sm">
+            APP 已接入。用 4.0 APP 蓝牙连上郊狼后会显示 slot。
+          </Text>
+        </section>
+      ) : null}
+
+      {relay.state === "paired" && relay.slotId ? (
         <section className="dg-panel flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div>
             <Text variant="body" bold>
-              已配对
+              设备已就绪
             </Text>
             <Text variant="secondary" size="sm">
-              可到控制台调节强度
+              {relay.deviceName ?? relay.slotId} · 可到控制台调节强度
             </Text>
           </div>
           <Button onClick={() => nav("/")}>去控制台</Button>
@@ -60,6 +71,7 @@ export function PairPage() {
             targetId={relay.targetId}
             appId={relay.appId}
             slotId={relay.slotId}
+            deviceName={relay.deviceName}
             error={relay.error}
           />
         </section>

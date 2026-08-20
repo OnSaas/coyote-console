@@ -90,6 +90,13 @@ export function clearOperate(slotId?: string): RpcReq {
     : rpcReq("device.op.clear");
 }
 
+export function pickDevice(list: RemoteDevice[]): RemoteDevice | undefined {
+  return (
+    list.find((d) => d.type === "COYOTE_030" || d.type === "COYOTE_020") ??
+    list.find((d) => Boolean(d.slotId))
+  );
+}
+
 export function isServerFrame(value: unknown): value is ServerFrame {
   return Boolean(
     value &&
@@ -109,8 +116,8 @@ export function readIntensity(device: RemoteDevice): {
   const channelA = (state.channelA ?? {}) as Record<string, unknown>;
   const channelB = (state.channelB ?? {}) as Record<string, unknown>;
   return {
-    a: num(props.intensityA),
-    b: num(props.intensityB),
+    a: num(props.intensityA) || num(channelA.intensity),
+    b: num(props.intensityB) || num(channelB.intensity),
     aLimit: num(channelA.intensityMax, 200),
     bLimit: num(channelB.intensityMax, 200),
   };

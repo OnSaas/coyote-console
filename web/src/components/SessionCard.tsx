@@ -6,10 +6,11 @@ interface Props {
   targetId: string | null;
   appId: string | null;
   slotId: string | null;
+  deviceName?: string | null;
   error: string | null;
 }
 
-export function SessionCard({ targetId, appId, slotId, error }: Props) {
+export function SessionCard({ targetId, appId, slotId, deviceName, error }: Props) {
   const toast = useKumoToastManager();
   const copied = () => toast.add({ title: "已复制", variant: "success" });
   return (
@@ -19,7 +20,7 @@ export function SessionCard({ targetId, appId, slotId, error }: Props) {
       </Text>
       <Field label="控制端 ID" value={targetId} onCopy={copied} />
       <Field label="APP ID" value={appId} onCopy={copied} />
-      <Field label="设备 slot" value={slotId} onCopy={copied} />
+      <Field label="设备" value={deviceName ?? slotId} onCopy={copied} />
       {error ? <Text variant="error">{error}</Text> : null}
     </div>
   );

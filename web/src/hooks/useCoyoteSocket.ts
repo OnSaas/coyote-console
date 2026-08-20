@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   isServerFrame,
+  pickDevice,
   qrPayload,
   readIntensity,
+  rpcReq,
   type RemoteDevice,
   type RpcReq,
   type ServerFrame,
@@ -161,16 +163,20 @@ export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
               });
             }
             const next = [...map.values()];
-            const coyote = next.find((d) => d.slotId);
+            const coyote = pickDevice(next);
             if (coyote) setStrength(readIntensity(coyote));
             return next;
           });
           return;
         }
 
-        if (data.t === "resp" && data.result && typeof data.result === "object") {
-          const list = (data.result as { devices?: RemoteDevice[] }).devices;
-          if (Array.isArray(list)) applyDeviceList(list);
+        if (data.t === "resp" && data.result != null) {
+          const result = data.result;
+          if (Array.isArray(result)) applyDeviceList(result as RemoteDevice[]);
+          else if (typeof result === "object") {
+            const list = (result as { devices?: RemoteDevice[] }).devices;
+            if (Array.isArray(list)) applyDeviceList(list);
+          }
           return;
         }
 
@@ -291,13 +297,23 @@ export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
   );
 
   const qrUrl = targetId ? qrPayload(relayOrigin, targetId) : null;
-  const slotId = devices[0]?.slotId ?? null;
+  const slotId = pickDevice(devices)?.slotId ?? null;
+  const deviceName = pickDevice(devices)?.name ?? null;
+
+  useEffect(() => {
+    if (state !== "paired" || slotId) return;
+    const tick = () => sendRpc(rpcReq("devices.get"));
+    tick();
+    const id = window.setInterval(tick, 2500);
+    return () => window.clearInterval(id);
+  }, [sendRpc, slotId, state]);
 
   return {
     state,
     targetId,
     appId,
     slotId,
+    deviceName,
     devices,
     strength,
     error,
