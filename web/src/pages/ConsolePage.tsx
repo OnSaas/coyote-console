@@ -1,26 +1,25 @@
-import { Text } from "@cloudflare/kumo/components/text";
 import { StrengthPanel } from "../components/StrengthPanel";
+import { PageHeader } from "../layout/PageHeader";
 import { formatDuration } from "../lib/records";
 import { useConsole } from "../state/ConsoleProvider";
 
 export function ConsolePage() {
-  const { relay, strength, recorder, canControl, emergencyStop, requirePaired } = useConsole();
+  const { relay, strength, recorder, canControl, emergencyStop, requirePaired } =
+    useConsole();
 
   return (
-    <div className="flex flex-col gap-5">
-      <Text variant="heading2" as="h1">
-        控制台
-      </Text>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="控制台" description="实时强度与本次会话摘要" />
+      <section className="dg-panel grid gap-4 p-5 sm:grid-cols-4">
+        <Stat label="状态" value={labelOf(relay.state)} />
+        <Stat
+          label="本次时长"
+          value={recorder.live ? formatDuration(Date.now() - recorder.live.startedAt) : "—"}
+        />
+        <Stat label="最高 A" value={String(recorder.live?.maxA ?? 0)} />
+        <Stat label="最高 B" value={String(recorder.live?.maxB ?? 0)} />
+      </section>
       <section className="dg-panel p-5">
-        <div className="mb-4 flex flex-wrap gap-4 text-sm">
-          <Stat label="状态" value={labelOf(relay.state)} />
-          <Stat
-            label="本次时长"
-            value={recorder.live ? formatDuration(Date.now() - recorder.live.startedAt) : "—"}
-          />
-          <Stat label="最高 A" value={String(recorder.live?.maxA ?? 0)} />
-          <Stat label="最高 B" value={String(recorder.live?.maxB ?? 0)} />
-        </div>
         <StrengthPanel
           a={strength.local.a}
           b={strength.local.b}
@@ -31,6 +30,8 @@ export function ConsolePage() {
           onNudge={strength.nudge}
           onStop={emergencyStop}
           onBlocked={requirePaired}
+          showStop={false}
+          split
         />
       </section>
     </div>

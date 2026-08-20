@@ -15,6 +15,8 @@ interface Props {
   onNudge: (channel: 1 | 2, up: boolean) => void;
   onStop: () => void;
   onBlocked?: () => void;
+  showStop?: boolean;
+  split?: boolean;
 }
 
 export function StrengthPanel({
@@ -27,6 +29,8 @@ export function StrengthPanel({
   onNudge,
   onStop,
   onBlocked,
+  showStop = true,
+  split = false,
 }: Props) {
   return (
     <div
@@ -35,28 +39,29 @@ export function StrengthPanel({
         if (!canControl) onBlocked?.();
       }}
     >
-      <Text variant="heading3" as="h2">
-        强度
-      </Text>
-      <ChannelRow
-        label="A"
-        value={a}
-        max={aLimit}
-        disabled={!canControl}
-        onSet={(v, imm) => onSet(1, v, imm)}
-        onNudge={(up) => onNudge(1, up)}
-      />
-      <ChannelRow
-        label="B"
-        value={b}
-        max={bLimit}
-        disabled={!canControl}
-        onSet={(v, imm) => onSet(2, v, imm)}
-        onNudge={(up) => onNudge(2, up)}
-      />
-      <div className="sticky bottom-3 z-20 md:static">
-        <EmergencyStop onStop={onStop} />
+      <div className={split ? "grid gap-6 md:grid-cols-2" : "flex flex-col gap-5"}>
+        <ChannelRow
+          label="A"
+          value={a}
+          max={aLimit}
+          disabled={!canControl}
+          onSet={(v, imm) => onSet(1, v, imm)}
+          onNudge={(up) => onNudge(1, up)}
+        />
+        <ChannelRow
+          label="B"
+          value={b}
+          max={bLimit}
+          disabled={!canControl}
+          onSet={(v, imm) => onSet(2, v, imm)}
+          onNudge={(up) => onNudge(2, up)}
+        />
       </div>
+      {showStop ? (
+        <div className="sticky bottom-3 z-20 md:static">
+          <EmergencyStop onStop={onStop} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -100,7 +105,7 @@ function ChannelRow({
         }}
         className="flex w-full touch-none select-none items-center"
       >
-        <Slider.Control className="flex h-6 w-full items-center">
+        <Slider.Control className="flex h-10 w-full items-center">
           <Slider.Track className="relative h-1.5 w-full rounded-full bg-kumo-fill">
             <Slider.Indicator className="absolute h-full rounded-full bg-[var(--dg-gold)]" />
             <Slider.Thumb className="absolute top-1/2 size-4 -translate-y-1/2 rounded-full bg-[var(--dg-gold)] shadow-xs ring-2 ring-[var(--dg-gold)]" />

@@ -1,16 +1,15 @@
 import { Input } from "@cloudflare/kumo/components/input";
 import { Switch } from "@cloudflare/kumo/components/switch";
 import { Text } from "@cloudflare/kumo/components/text";
+import { PageHeader } from "../layout/PageHeader";
 import { useConsole } from "../state/ConsoleProvider";
 
 export function SettingsPage() {
   const { settings, patchSettings } = useConsole();
 
   return (
-    <div className="flex flex-col gap-5">
-      <Text variant="heading2" as="h1">
-        设置
-      </Text>
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+      <PageHeader title="设置" description="安全上限、记录与关于。" />
 
       <section className="dg-panel flex flex-col gap-4 p-5">
         <Text variant="heading3" as="h2">

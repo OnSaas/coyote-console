@@ -2,6 +2,7 @@ import { Button } from "@cloudflare/kumo/components/button";
 import { Text } from "@cloudflare/kumo/components/text";
 import { V4Channel } from "../lib/protocol";
 import { WAVE_PRESETS, sendPulse } from "../lib/waves";
+import { PageHeader } from "../layout/PageHeader";
 import { useConsole } from "../state/ConsoleProvider";
 
 export function WavesPage() {
@@ -20,10 +21,8 @@ export function WavesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <Text variant="heading2" as="h1">
-        波形库
-      </Text>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="波形库" description="内置预设试播 5 秒。导入下一阶段再做。" />
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {WAVE_PRESETS.map((w) => (
           <article key={w.id} className="dg-panel flex flex-col gap-3 p-4">

@@ -11,6 +11,7 @@ import {
   type RecordTag,
   type SessionRecord,
 } from "../lib/records";
+import { PageHeader } from "../layout/PageHeader";
 import { useConsole } from "../state/ConsoleProvider";
 
 type Filter = "all" | "today" | "week";
@@ -33,11 +34,11 @@ export function RecordsPage() {
   });
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Text variant="heading2" as="h1">
-          记录
-        </Text>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="记录"
+        description="自动保存与手动记一笔，数据只在本机。"
+        actions={
         <div className="flex flex-wrap gap-2">
           {(["today", "week", "all"] as const).map((f) => (
             <Button
@@ -53,7 +54,8 @@ export function RecordsPage() {
             记一笔
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {recorder.live ? (
         <section className="dg-panel p-4">
