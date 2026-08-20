@@ -14,6 +14,7 @@ interface Props {
   onSet: (channel: 1 | 2, value: number, immediate?: boolean) => void;
   onNudge: (channel: 1 | 2, up: boolean) => void;
   onStop: () => void;
+  onBlocked?: () => void;
 }
 
 export function StrengthPanel({
@@ -25,9 +26,15 @@ export function StrengthPanel({
   onSet,
   onNudge,
   onStop,
+  onBlocked,
 }: Props) {
   return (
-    <div className="flex flex-col gap-5">
+    <div
+      className="flex flex-col gap-5"
+      onPointerDown={() => {
+        if (!canControl) onBlocked?.();
+      }}
+    >
       <Text variant="heading3" as="h2">
         强度
       </Text>

@@ -21,7 +21,7 @@ export function PairPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <PairingCard
             qrUrl={relay.qrUrl}
-            waiting={relay.state === "waiting"}
+            waiting={relay.state === "connected"}
           />
           <SessionCard
             targetId={relay.targetId}

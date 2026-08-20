@@ -12,7 +12,7 @@ export default {
       }
 
       if (isWorkerHttpPath(url.pathname)) {
-        return handleHttp(url);
+        return handleHttp(request, url);
       }
 
       return env.ASSETS.fetch(request);
@@ -42,7 +42,7 @@ function isWorkerHttpPath(pathname: string): boolean {
   );
 }
 
-function handleHttp(url: URL): Response {
+function handleHttp(request: Request, url: URL): Response {
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     return Response.json({
       ok: true,
@@ -53,6 +53,24 @@ function handleHttp(url: URL): Response {
 
   if (url.pathname === "/api/ok") {
     return Response.json({ ok: true });
+  }
+
+  if (url.pathname === "/api/create") {
+    if (request.method !== "POST") {
+      return Response.json(
+        { error: "Method Not Allowed" },
+        { status: 405, headers: { Allow: "POST" } },
+      );
+    }
+    const clientId = crypto.randomUUID();
+    const wsOrigin = url.origin.replace(/^http/, "ws");
+    return Response.json({
+      ok: true,
+      clientId,
+      sessionId: clientId,
+      wsUrl: `${wsOrigin}/ws?sid=${clientId}`,
+      appWsUrl: `${wsOrigin}/ws?tid=${clientId}`,
+    });
   }
 
   if (
@@ -74,8 +92,8 @@ function routeWebSocket(
 ): Promise<Response> | Response {
   const segs = url.pathname.split("/").filter(Boolean);
   const tid = url.searchParams.get("tid");
+  const sid = url.searchParams.get("sid");
 
-  // APP：/?tid=  或  /v4?tid=  或  /ws?tid=
   if (tid) {
     const dest = new URL(request.url);
     dest.searchParams.set("role", "app");
@@ -83,19 +101,19 @@ function routeWebSocket(
     return env.SESSION.getByName(tid).fetch(new Request(dest, request));
   }
 
-  // 控制端：/v4  /ws  /
-  if (
+  const controllerPath =
     segs.length === 0 ||
-    (segs.length === 1 && (segs[0] === "v4" || segs[0] === "ws"))
-  ) {
-    const clientId = crypto.randomUUID();
+    (segs.length === 1 && (segs[0] === "v4" || segs[0] === "ws"));
+
+  if (controllerPath || sid) {
+    const clientId = sid || crypto.randomUUID();
     const dest = new URL(request.url);
     dest.searchParams.set("role", "controller");
     dest.searchParams.set("clientId", clientId);
     return env.SESSION.getByName(clientId).fetch(new Request(dest, request));
   }
 
-  return new Response("Expected wss://host/v4 or wss://host/v4?tid=", {
+  return new Response("Expected wss://host/ws or wss://host/ws?tid=", {
     status: 400,
   });
 }

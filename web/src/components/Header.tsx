@@ -12,7 +12,7 @@ const STATE_BADGE: Record<
 > = {
   idle: { label: "未连接", variant: "secondary" },
   connecting: { label: "连接中", variant: "info" },
-  waiting: { label: "等待扫码", variant: "warning" },
+  connected: { label: "已连接", variant: "warning" },
   paired: { label: "已配对", variant: "success" },
   disconnected: { label: "已断开", variant: "secondary" },
   error: { label: "错误", variant: "error" },

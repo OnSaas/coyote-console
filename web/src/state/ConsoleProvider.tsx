@@ -13,6 +13,7 @@ interface ConsoleValue {
   settings: Settings;
   patchSettings: (partial: Partial<Settings>) => void;
   canControl: boolean;
+  requirePaired: () => boolean;
   emergencyStop: () => void;
 }
 
@@ -36,6 +37,22 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
   );
 
   const relay = useCoyoteSocket(onEvent);
+  const requirePaired = useCallback(() => {
+    if (relay.state !== "paired") {
+      toast.add({
+        title: "请先完成配对",
+        description: "打开「配对」连接中继并扫码",
+        variant: "warning",
+      });
+      return false;
+    }
+    if (!relay.slotId) {
+      toast.add({ title: "当前无设备", variant: "warning" });
+      return false;
+    }
+    return true;
+  }, [relay.slotId, relay.state, toast]);
+
   const canControl = relay.state === "paired" && Boolean(relay.slotId);
   const remote = {
     ...relay.strength,
@@ -47,7 +64,9 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
     remote,
     slotId: relay.slotId,
     sendRpc: relay.sendRpc,
-    onBlocked: () => toast.add({ title: "尚未配对或无设备", variant: "warning" }),
+    onBlocked: () => {
+      requirePaired();
+    },
   });
 
   const recorder = useSessionRecorder({
@@ -58,6 +77,10 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
   });
 
   const emergencyStop = useCallback(() => {
+    if (!canControl) {
+      toast.add({ title: "当前无设备", variant: "warning" });
+      return;
+    }
     const run = () => {
       if (strength.emergencyStop()) {
         recorder.markStop();
@@ -68,7 +91,7 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
       return;
     }
     run();
-  }, [recorder, settings.confirmStop, strength, toast]);
+  }, [canControl, recorder, settings.confirmStop, strength, toast]);
 
   const patchSettings = useCallback((partial: Partial<Settings>) => {
     setSettings((prev) => {
@@ -86,9 +109,19 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
       settings,
       patchSettings,
       canControl,
+      requirePaired,
       emergencyStop,
     }),
-    [canControl, emergencyStop, patchSettings, recorder, relay, settings, strength],
+    [
+      canControl,
+      emergencyStop,
+      patchSettings,
+      recorder,
+      relay,
+      requirePaired,
+      settings,
+      strength,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

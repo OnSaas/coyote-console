@@ -3,7 +3,6 @@ import {
   isServerFrame,
   qrPayload,
   readIntensity,
-  relayWsUrl,
   type RemoteDevice,
   type RpcReq,
   type ServerFrame,
@@ -12,7 +11,7 @@ import {
 export type ConnState =
   | "idle"
   | "connecting"
-  | "waiting"
+  | "connected"
   | "paired"
   | "disconnected"
   | "error";
@@ -76,8 +75,8 @@ export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
 
       if (frame.type === "hello" && frame.clientId) {
         setTargetId(frame.clientId);
-        setState("waiting");
-        emit({ kind: "info", title: "已连接中继", description: "用 4.0 APP 扫码配对" });
+        setState("connected");
+        emit({ kind: "info", title: "中继已连接，请扫码" });
         return;
       }
 
@@ -105,7 +104,7 @@ export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
           appIdRef.current = null;
           setDevices([]);
           setStrength(EMPTY_STRENGTH);
-          setState("waiting");
+          setState("connected");
           emit({ kind: "warning", title: "APP 已断开" });
         }
         return;
@@ -200,37 +199,71 @@ export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
     setState("idle");
   }, []);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     disconnect();
     setState("connecting");
     setError(null);
 
-    const ws = new WebSocket(relayWsUrl(relayOrigin));
-    wsRef.current = ws;
-
-    ws.onmessage = (ev) => {
-      if (wsRef.current !== ws) return;
-      if (typeof ev.data !== "string") return;
+    try {
+      const res = await fetch("/api/create", { method: "POST" });
+      const raw = await res.text();
+      let created: { ok?: boolean; clientId?: string; wsUrl?: string; error?: string };
       try {
-        const parsed: unknown = JSON.parse(ev.data);
-        if (isServerFrame(parsed)) handleFrame(parsed);
+        created = JSON.parse(raw) as typeof created;
       } catch {
-        /* ignore */
+        throw new Error(`创建会话失败：返回非 JSON (HTTP ${res.status})`);
       }
-    };
+      if (!res.ok || !created.wsUrl) {
+        throw new Error(created.error || `创建会话失败 HTTP ${res.status}`);
+      }
 
-    ws.onerror = () => {
-      if (wsRef.current !== ws) return;
-      setError("WebSocket 连接失败");
-      emit({ kind: "error", title: "连接失败" });
-    };
+      const ws = new WebSocket(created.wsUrl);
+      wsRef.current = ws;
+      let hello = false;
 
-    ws.onclose = () => {
-      if (wsRef.current !== ws) return;
-      wsRef.current = null;
-      setState((prev) => (prev === "idle" ? prev : "disconnected"));
-    };
-  }, [disconnect, emit, handleFrame, relayOrigin]);
+      const timer = window.setTimeout(() => {
+        if (hello || wsRef.current !== ws) return;
+        ws.close();
+        setError("等待 hello 超时");
+        emit({ kind: "error", title: "连接超时", description: "未收到 hello" });
+        setState("idle");
+      }, 8000);
+
+      ws.onmessage = (ev) => {
+        if (wsRef.current !== ws) return;
+        if (typeof ev.data !== "string") return;
+        try {
+          const parsed: unknown = JSON.parse(ev.data);
+          if (isServerFrame(parsed)) {
+            if (parsed.type === "hello") hello = true;
+            handleFrame(parsed);
+          }
+        } catch {
+          emit({ kind: "error", title: "连接失败", description: "收到非 JSON 帧" });
+        }
+      };
+
+      ws.onerror = () => {
+        if (wsRef.current !== ws) return;
+        window.clearTimeout(timer);
+        setError("WebSocket 连接失败");
+        emit({ kind: "error", title: "连接失败", description: "无法升级到 /ws" });
+        setState("idle");
+      };
+
+      ws.onclose = () => {
+        window.clearTimeout(timer);
+        if (wsRef.current !== ws) return;
+        wsRef.current = null;
+        setState((prev) => (prev === "idle" || prev === "connecting" ? "idle" : "disconnected"));
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setError(message);
+      emit({ kind: "error", title: "连接失败", description: message });
+      setState("idle");
+    }
+  }, [disconnect, emit, handleFrame]);
 
   useEffect(() => {
     return () => {

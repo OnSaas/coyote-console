@@ -4,7 +4,7 @@ import { formatDuration } from "../lib/records";
 import { useConsole } from "../state/ConsoleProvider";
 
 export function ConsolePage() {
-  const { relay, strength, recorder, canControl, emergencyStop } = useConsole();
+  const { relay, strength, recorder, canControl, emergencyStop, requirePaired } = useConsole();
 
   return (
     <div className="flex flex-col gap-5">
@@ -30,6 +30,7 @@ export function ConsolePage() {
           onSet={strength.setChannel}
           onNudge={strength.nudge}
           onStop={emergencyStop}
+          onBlocked={requirePaired}
         />
       </section>
     </div>
@@ -47,7 +48,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function labelOf(state: string) {
   if (state === "paired") return "已配对";
-  if (state === "waiting") return "等待扫码";
+  if (state === "connected") return "已连接";
   if (state === "connecting") return "连接中";
   if (state === "error") return "错误";
   if (state === "disconnected") return "已断开";

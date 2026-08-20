@@ -42,7 +42,7 @@ export interface RemoteDevice {
 }
 
 export function relayWsUrl(origin: string): string {
-  return origin.replace(/^http/, "ws").replace(/\/$/, "") + "/v4";
+  return origin.replace(/^http/, "ws").replace(/\/$/, "") + "/ws";
 }
 
 export function appWsUrl(origin: string, targetId: string): string {

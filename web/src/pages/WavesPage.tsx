@@ -5,9 +5,10 @@ import { WAVE_PRESETS, sendPulse } from "../lib/waves";
 import { useConsole } from "../state/ConsoleProvider";
 
 export function WavesPage() {
-  const { relay, canControl, recorder } = useConsole();
+  const { relay, canControl, recorder, requirePaired } = useConsole();
 
   function play(name: string, frames: readonly string[], ch: 0 | 1) {
+    if (!requirePaired()) return;
     if (!relay.slotId) return;
     if (
       relay.sendRpc(
@@ -37,6 +38,9 @@ export function WavesPage() {
                 size="sm"
                 disabled={!canControl}
                 onClick={() => play(w.name, w.frames, 0)}
+                onPointerDown={() => {
+                  if (!canControl) requirePaired();
+                }}
               >
                 下发 A
               </Button>
@@ -45,6 +49,9 @@ export function WavesPage() {
                 variant="secondary"
                 disabled={!canControl}
                 onClick={() => play(w.name, w.frames, 1)}
+                onPointerDown={() => {
+                  if (!canControl) requirePaired();
+                }}
               >
                 下发 B
               </Button>
