@@ -47,7 +47,11 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
       return false;
     }
     if (!relay.slotId) {
-      toast.add({ title: "当前无设备", variant: "warning" });
+      toast.add({
+        title: "等待设备",
+        description: "APP 已接入，等郊狼出现后再控制",
+        variant: "warning",
+      });
       return false;
     }
     return true;

@@ -4,7 +4,6 @@ import {
   HEARTBEAT_MS,
   IDLE_TIMEOUT_MS,
   type Attachment,
-  type Role,
 } from "./types";
 
 interface ServerFrame {
@@ -12,13 +11,15 @@ interface ServerFrame {
   clientId?: string;
   data?: unknown;
   ts?: number;
+  code?: string;
+  message?: string;
 }
 
 export class Session extends DurableObject<Env> {
   controllerWs: WebSocket | null = null;
   controllerId: string | null = null;
   apps = new Map<string, WebSocket>();
-  lastAppAt = 0;
+  lastIdleAt = 0;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -31,9 +32,12 @@ export class Session extends DurableObject<Env> {
         this.controllerId = att.clientId;
       } else {
         this.apps.set(att.clientId, ws);
-        this.lastAppAt = Date.now();
       }
     });
+
+    if (this.controllerWs && this.apps.size === 0) {
+      this.lastIdleAt = Date.now();
+    }
 
     this.ctx.setWebSocketAutoResponse(
       new WebSocketRequestResponsePair("ping", "pong"),
@@ -46,17 +50,26 @@ export class Session extends DurableObject<Env> {
     }
 
     const url = new URL(request.url);
-    const role = (url.searchParams.get("role") || "app") as Role;
+    const tid = url.searchParams.get("tid") ?? url.searchParams.get("targetId");
     const forcedId = url.searchParams.get("clientId");
+    const isApp = Boolean(tid) || url.searchParams.get("role") === "app";
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
 
-    if (role === "controller") {
-      await this.attachController(server, forcedId);
+    const clientId = forcedId || newClientId();
+    server.serializeAttachment({
+      role: isApp ? "app" : "controller",
+      clientId,
+    } satisfies Attachment);
+
+    this.send(server, { type: "hello", clientId });
+
+    if (isApp) {
+      await this.attachApp(server, clientId);
     } else {
-      await this.attachApp(server);
+      await this.attachController(server, clientId);
     }
 
     return new Response(null, { status: 101, webSocket: client });
@@ -71,7 +84,6 @@ export class Session extends DurableObject<Env> {
     try {
       frame = JSON.parse(message) as ServerFrame;
     } catch {
-      this.send(ws, { type: "error", data: "bad_json" });
       return;
     }
 
@@ -80,14 +92,24 @@ export class Session extends DurableObject<Env> {
       return;
     }
     if (frame.type === "heartbeat" || frame.type === "pong") return;
+    if (frame.type !== "message") return;
 
     if (att.role === "controller") {
-      if (frame.type !== "message") return;
-      const targetId = frame.clientId;
-      if (!targetId) return;
-      const app = this.apps.get(targetId);
+      if (typeof frame.clientId !== "string") {
+        this.send(ws, {
+          type: "error",
+          code: "bad_request",
+          message: "message.clientId is required",
+        });
+        return;
+      }
+      const app = this.apps.get(frame.clientId);
       if (!app) {
-        this.send(ws, { type: "error", data: "client_not_found" });
+        this.send(ws, {
+          type: "error",
+          code: "client_not_found",
+          clientId: frame.clientId,
+        });
         return;
       }
       this.send(app, { type: "message", data: frame.data });
@@ -95,11 +117,10 @@ export class Session extends DurableObject<Env> {
     }
 
     if (!this.controllerWs) return;
-    const payload = frame.type === "message" ? (frame.data ?? frame) : frame;
     this.send(this.controllerWs, {
       type: "message",
       clientId: att.clientId,
-      data: payload,
+      data: frame.data,
     });
   }
 
@@ -134,9 +155,11 @@ export class Session extends DurableObject<Env> {
           type: "client_disconnected",
           clientId: att.clientId,
         });
+        if (this.apps.size === 0) {
+          this.lastIdleAt = Date.now();
+          await this.ensureAlarm();
+        }
       }
-      this.lastAppAt = Date.now();
-      await this.ensureAlarm();
     }
   }
 
@@ -152,9 +175,8 @@ export class Session extends DurableObject<Env> {
       this.send(ws, { type: "heartbeat" });
     }
 
-    if (this.controllerWs && this.apps.size === 0) {
-      const idleFor = Date.now() - this.lastAppAt;
-      if (this.lastAppAt > 0 && idleFor >= IDLE_TIMEOUT_MS) {
+    if (this.controllerWs && this.apps.size === 0 && this.lastIdleAt > 0) {
+      if (Date.now() - this.lastIdleAt >= IDLE_TIMEOUT_MS) {
         this.send(this.controllerWs, { type: "idle_timeout" });
         try {
           this.controllerWs.close(Close.IDLE.code, Close.IDLE.reason);
@@ -168,9 +190,7 @@ export class Session extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(Date.now() + HEARTBEAT_MS);
   }
 
-  private async attachController(server: WebSocket, forcedId: string | null) {
-    const clientId = forcedId || crypto.randomUUID();
-
+  private async attachController(server: WebSocket, clientId: string) {
     if (this.controllerWs && this.controllerWs !== server) {
       try {
         this.controllerWs.close(4000, "replaced");
@@ -179,21 +199,15 @@ export class Session extends DurableObject<Env> {
       }
     }
 
-    server.serializeAttachment({
-      role: "controller",
-      clientId,
-    } satisfies Attachment);
     this.controllerWs = server;
     this.controllerId = clientId;
-    this.lastAppAt = Date.now();
-
-    this.send(server, { type: "hello", clientId });
+    if (this.apps.size === 0) this.lastIdleAt = Date.now();
     await this.ensureAlarm();
   }
 
-  private async attachApp(server: WebSocket) {
+  private async attachApp(server: WebSocket, clientId: string) {
     if (!this.controllerWs || !this.controllerId) {
-      this.send(server, { type: "error", data: "controller_not_found" });
+      this.send(server, { type: "error", code: "controller_not_found" });
       try {
         server.close(
           Close.CONTROLLER_MISSING.code,
@@ -205,15 +219,8 @@ export class Session extends DurableObject<Env> {
       return;
     }
 
-    const clientId = crypto.randomUUID();
-    server.serializeAttachment({
-      role: "app",
-      clientId,
-    } satisfies Attachment);
     this.apps.set(clientId, server);
-    this.lastAppAt = Date.now();
-
-    this.send(server, { type: "hello", clientId });
+    this.lastIdleAt = 0;
     this.send(server, {
       type: "controller_attached",
       clientId: this.controllerId,
@@ -239,4 +246,10 @@ export class Session extends DurableObject<Env> {
       await this.ctx.storage.setAlarm(Date.now() + HEARTBEAT_MS);
     }
   }
+}
+
+export function newClientId(): string {
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }

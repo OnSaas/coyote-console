@@ -10,6 +10,8 @@ export interface ServerFrame {
   clientId?: string;
   data?: unknown;
   ts?: number;
+  code?: string;
+  message?: string;
 }
 
 export interface RpcReq {
@@ -77,7 +79,6 @@ export function resetIntensity(slotId: string, channel: V4ChannelId): RpcReq {
     s: slotId,
     t: 7,
     c: channel,
-    p: 2,
     im: true,
     v: 0,
   });

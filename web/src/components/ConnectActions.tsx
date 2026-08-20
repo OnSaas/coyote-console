@@ -18,7 +18,12 @@ export function ConnectActions({ state, onConnect, onDisconnect }: Props) {
 
   if (canConnect) {
     return (
-      <Button loading={state === "connecting"} icon={Plugs} onClick={onConnect}>
+      <Button
+        className="dg-cta"
+        loading={state === "connecting"}
+        icon={Plugs}
+        onClick={onConnect}
+      >
         连接中继
       </Button>
     );

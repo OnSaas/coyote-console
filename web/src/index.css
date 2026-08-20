@@ -2,13 +2,13 @@
 @import "@cloudflare/kumo/styles";
 
 :root {
-  --dg-bg: #0b0b0c;
-  --dg-sidebar: #09090b;
-  --dg-surface: #18181b;
+  --dg-bg: #0a0a0a;
+  --dg-sidebar: #0a0a0a;
+  --dg-surface: #1a1a1a;
   --dg-gold: #e8d48b;
-  --dg-text: #fafafa;
-  --dg-muted: #a1a1aa;
-  --dg-border: #27272a;
+  --dg-text: #f5f0e6;
+  --dg-muted: #a3a3a3;
+  --dg-border: #2a2a2a;
   --dg-sidebar-w: 240px;
   --dg-sidebar-w-icon: 64px;
 }
@@ -150,4 +150,10 @@ body {
   .dg-table-head {
     display: none;
   }
+}
+
+.dg-cta {
+  background: var(--dg-gold) !important;
+  color: #1a1208 !important;
+  border-color: var(--dg-gold) !important;
 }

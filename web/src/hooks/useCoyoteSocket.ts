@@ -119,7 +119,7 @@ export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
         emit({
           kind: "error",
           title: "中继错误",
-          description: String(frame.data ?? ""),
+          description: String(frame.code ?? frame.data ?? ""),
         });
         return;
       }

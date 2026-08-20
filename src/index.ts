@@ -1,4 +1,4 @@
-import { Session } from "./Session";
+import { Session, newClientId } from "./Session";
 
 export { Session };
 
@@ -62,7 +62,7 @@ function handleHttp(request: Request, url: URL): Response {
         { status: 405, headers: { Allow: "POST" } },
       );
     }
-    const clientId = crypto.randomUUID();
+    const clientId = newClientId();
     const wsOrigin = url.origin.replace(/^http/, "ws");
     return Response.json({
       ok: true,
@@ -91,7 +91,8 @@ function routeWebSocket(
   url: URL,
 ): Promise<Response> | Response {
   const segs = url.pathname.split("/").filter(Boolean);
-  const tid = url.searchParams.get("tid");
+  const tid =
+    url.searchParams.get("tid") ?? url.searchParams.get("targetId");
   const sid = url.searchParams.get("sid");
 
   if (tid) {
@@ -106,7 +107,7 @@ function routeWebSocket(
     (segs.length === 1 && (segs[0] === "v4" || segs[0] === "ws"));
 
   if (controllerPath || sid) {
-    const clientId = sid || crypto.randomUUID();
+    const clientId = sid || newClientId();
     const dest = new URL(request.url);
     dest.searchParams.set("role", "controller");
     dest.searchParams.set("clientId", clientId);
