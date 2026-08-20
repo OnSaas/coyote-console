@@ -1,8 +1,10 @@
 import { Badge } from "@cloudflare/kumo/components/badge";
 import { Button } from "@cloudflare/kumo/components/button";
+import { Dialog } from "@cloudflare/kumo/components/dialog";
 import { Sidebar } from "@cloudflare/kumo/components/sidebar";
-import { CopySimple, Stop } from "@phosphor-icons/react";
 import { useKumoToastManager } from "@cloudflare/kumo/components/toast";
+import { CopySimple, Stop } from "@phosphor-icons/react";
+import { useState } from "react";
 import type { ConnState } from "../hooks/useCoyoteSocket";
 import { useConsole } from "../state/ConsoleProvider";
 
@@ -19,8 +21,9 @@ const STATE_BADGE: Record<
 };
 
 export function AppTopbar() {
-  const { relay, emergencyStop } = useConsole();
+  const { relay, emergencyStop, settings } = useConsole();
   const toast = useKumoToastManager();
+  const [confirm, setConfirm] = useState(false);
   const badge = STATE_BADGE[relay.state];
   const showId =
     (relay.state === "connected" || relay.state === "paired") && relay.targetId;
@@ -37,7 +40,7 @@ export function AppTopbar() {
           onClick={async () => {
             if (!relay.targetId) return;
             await navigator.clipboard.writeText(relay.targetId);
-            toast.add({ title: "已复制会话 ID", variant: "success" });
+            toast.add({ title: "已复制", variant: "success" });
           }}
         >
           {shortId}
@@ -45,9 +48,39 @@ export function AppTopbar() {
         </button>
       ) : null}
       <div className="flex-1" />
-      <Button variant="destructive" size="sm" icon={Stop} onClick={emergencyStop}>
+      <Button
+        variant="destructive"
+        size="sm"
+        icon={Stop}
+        onClick={() => {
+          if (settings.confirmStop) setConfirm(true);
+          else emergencyStop();
+        }}
+      >
         急停
       </Button>
+      {confirm ? (
+        <Dialog.Root open onOpenChange={(o) => !o && setConfirm(false)}>
+          <Dialog className="p-6">
+            <Dialog.Title>确认急停？</Dialog.Title>
+            <Dialog.Description>双通道将归零并清波形。</Dialog.Description>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setConfirm(false)}>
+                取消
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setConfirm(false);
+                  emergencyStop();
+                }}
+              >
+                急停
+              </Button>
+            </div>
+          </Dialog>
+        </Dialog.Root>
+      ) : null}
     </header>
   );
 }

@@ -81,17 +81,11 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
       toast.add({ title: "当前无设备", variant: "warning" });
       return;
     }
-    const run = () => {
-      if (strength.emergencyStop()) {
-        recorder.markStop();
-        toast.add({ title: "已归零并清除波形", variant: "success" });
-      }
-    };
-    if (settings.confirmStop && !window.confirm("确认急停？双通道将归零并清波形。")) {
-      return;
+    if (strength.emergencyStop()) {
+      recorder.markStop();
+      toast.add({ title: "已归零并清除波形", variant: "success" });
     }
-    run();
-  }, [canControl, recorder, settings.confirmStop, strength, toast]);
+  }, [canControl, recorder, strength, toast]);
 
   const patchSettings = useCallback((partial: Partial<Settings>) => {
     setSettings((prev) => {

@@ -4,10 +4,14 @@ import { Input } from "@cloudflare/kumo/components/input";
 import { Text } from "@cloudflare/kumo/components/text";
 import { toPng } from "html-to-image";
 import { useRef, useState } from "react";
+import { ChartBar } from "@phosphor-icons/react";
+import { useKumoToastManager } from "@cloudflare/kumo/components/toast";
+import { EmptyState } from "../components/EmptyState";
 import { emptyManual } from "../hooks/useSessionRecorder";
 import {
   formatClock,
   formatDuration,
+  shareText,
   type RecordTag,
   type SessionRecord,
 } from "../lib/records";
@@ -18,9 +22,11 @@ type Filter = "all" | "today" | "week";
 
 export function RecordsPage() {
   const { recorder } = useConsole();
+  const toast = useKumoToastManager();
   const [filter, setFilter] = useState<Filter>("all");
   const [draft, setDraft] = useState<SessionRecord | null>(null);
   const [share, setShare] = useState<SessionRecord | null>(null);
+  const [removeId, setRemoveId] = useState<string | null>(null);
 
   const now = Date.now();
   const startOfDay = new Date();
@@ -71,7 +77,12 @@ export function RecordsPage() {
 
       <div className="flex flex-col gap-3">
         {list.length === 0 ? (
-          <Text variant="secondary">还没有记录。</Text>
+          <EmptyState
+            icon={ChartBar}
+            title="还没有战绩"
+            description="开启自动保存并完成一次会话，或点「记一笔」。"
+            action={{ label: "记一笔", onClick: () => setDraft(emptyManual()) }}
+          />
         ) : (
           list.map((r) => (
             <article key={r.id} className="dg-panel flex flex-col gap-2 p-4">
@@ -86,18 +97,17 @@ export function RecordsPage() {
               </div>
               <Text variant="secondary" size="xs">
                 最高 A {r.maxA} / B {r.maxB} · 急停 {r.stops}
-                {r.waves.length ? ` · 波形 ${r.waves.join("、")}` : ""}
               </Text>
-              {r.note ? <Text variant="secondary">{r.note}</Text> : null}
+              {r.note ? (
+                <Text variant="secondary" DANGEROUS_className="truncate">
+                  {r.note}
+                </Text>
+              ) : null}
               <div className="flex gap-2">
                 <Button size="sm" variant="secondary" onClick={() => setShare(r)}>
-                  分享卡片
+                  分享
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => recorder.remove(r.id)}
-                >
+                <Button size="sm" variant="ghost" onClick={() => setRemoveId(r.id)}>
                   删除
                 </Button>
               </div>
@@ -113,12 +123,36 @@ export function RecordsPage() {
           onSave={() => {
             recorder.saveManual(draft);
             setDraft(null);
+            toast.add({ title: "已保存", variant: "success" });
           }}
           onClose={() => setDraft(null)}
         />
       ) : null}
 
       {share ? <ShareDialog rec={share} onClose={() => setShare(null)} /> : null}
+      {removeId ? (
+        <Dialog.Root open onOpenChange={(o) => !o && setRemoveId(null)}>
+          <Dialog className="p-6">
+            <Dialog.Title>删除这条记录？</Dialog.Title>
+            <Dialog.Description>仅从本机删除，无法恢复。</Dialog.Description>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setRemoveId(null)}>
+                取消
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  recorder.remove(removeId);
+                  setRemoveId(null);
+                  toast.add({ title: "已删除", variant: "success" });
+                }}
+              >
+                删除
+              </Button>
+            </div>
+          </Dialog>
+        </Dialog.Root>
+      ) : null}
     </div>
   );
 }
@@ -206,17 +240,7 @@ function ShareDialog({ rec, onClose }: { rec: SessionRecord; onClose: () => void
   }
 
   function copyText() {
-    const text = [
-      "DG-LAB · Coyote 战绩",
-      formatClock(rec.startedAt),
-      `时长 ${formatDuration(rec.durationMs)}`,
-      `最高 A ${rec.maxA}  最高 B ${rec.maxB}`,
-      `急停 ${rec.stops} 次`,
-      rec.note ? `备注 ${rec.note}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-    void navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(shareText(rec));
   }
 
   return (

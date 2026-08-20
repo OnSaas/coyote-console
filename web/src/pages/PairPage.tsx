@@ -1,3 +1,6 @@
+import { Button } from "@cloudflare/kumo/components/button";
+import { Text } from "@cloudflare/kumo/components/text";
+import { useNavigate } from "react-router-dom";
 import { ConnectActions } from "../components/ConnectActions";
 import { PairingCard } from "../components/PairingCard";
 import { SessionCard } from "../components/SessionCard";
@@ -6,6 +9,10 @@ import { useConsole } from "../state/ConsoleProvider";
 
 export function PairPage() {
   const { relay } = useConsole();
+  const nav = useNavigate();
+  const step =
+    relay.state === "paired" ? 3 : relay.state === "connected" || relay.state === "connecting" ? 2 : 1;
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -19,6 +26,20 @@ export function PairPage() {
           />
         }
       />
+      <ol className="grid gap-3 sm:grid-cols-3">
+        <Step n={1} active={step === 1} done={step > 1} title="连接中继" />
+        <Step n={2} active={step === 2} done={step > 2} title="APP 扫码" />
+        <Step n={3} active={step === 3} done={step === 3} title="完成" />
+      </ol>
+      {relay.state === "paired" ? (
+        <section className="dg-panel flex flex-col items-start gap-3 p-5">
+          <Text variant="heading3" as="h2">
+            已配对
+          </Text>
+          <Text variant="secondary">可到控制台调节强度。</Text>
+          <Button onClick={() => nav("/")}>去控制台</Button>
+        </section>
+      ) : null}
       <div className="grid gap-6 md:grid-cols-2">
         <section className="dg-panel p-5">
           <PairingCard qrUrl={relay.qrUrl} waiting={relay.state === "connected"} />
@@ -33,5 +54,28 @@ export function PairPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+function Step({
+  n,
+  title,
+  active,
+  done,
+}: {
+  n: number;
+  title: string;
+  active: boolean;
+  done: boolean;
+}) {
+  return (
+    <li
+      className={`dg-panel flex items-center gap-3 p-3 ${active ? "ring-1 ring-[var(--dg-gold)]" : ""}`}
+    >
+      <span className={`grid size-7 place-items-center rounded-full text-sm ${done || active ? "bg-[var(--dg-gold)] text-black" : "bg-white/10"}`}>
+        {n}
+      </span>
+      <Text variant={active ? "body" : "secondary"}>{title}</Text>
+    </li>
   );
 }

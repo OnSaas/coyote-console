@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  clearAllRecords,
   deleteRecord,
   loadRecords,
   type RecordTag,
@@ -98,7 +99,19 @@ export function useSessionRecorder(opts: {
     setRecords((list) => deleteRecord(list, id));
   }, []);
 
-  return { records, live, markStop, markWave, finalize, saveManual, remove };
+  const clearAll = useCallback(() => {
+    clearAllRecords();
+    setRecords([]);
+  }, []);
+
+  const endSession = useCallback(
+    (extra?: Partial<SessionRecord>) => {
+      finalize(extra);
+    },
+    [finalize],
+  );
+
+  return { records, live, markStop, markWave, finalize, endSession, saveManual, remove, clearAll };
 }
 
 export function emptyManual(): SessionRecord {

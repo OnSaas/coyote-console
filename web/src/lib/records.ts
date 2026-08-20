@@ -43,6 +43,10 @@ export function deleteRecord(list: SessionRecord[], id: string): SessionRecord[]
   return next;
 }
 
+export function clearAllRecords() {
+  saveRecords([]);
+}
+
 export function formatDuration(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600);
@@ -57,4 +61,16 @@ export function formatClock(ts: number): string {
   const d = new Date(ts);
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+export function shareText(rec: SessionRecord): string {
+  return [
+    "Coyote 战绩",
+    `时长 ${formatDuration(rec.durationMs)}`,
+    `最高 A ${rec.maxA} / B ${rec.maxB}`,
+    formatClock(rec.startedAt),
+    rec.note ? `备注 ${rec.note}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
 }
