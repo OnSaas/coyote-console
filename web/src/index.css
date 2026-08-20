@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "@cloudflare/kumo/styles";
 
+:root {
+  --dg-bg: #0a0a0a;
+  --dg-surface: #141414;
+  --dg-gold: #e8d48b;
+  --dg-text: #f5f5f5;
+  --dg-muted: #a3a3a3;
+  --dg-border: #2a2a2a;
+}
+
 html,
 body,
 #root {
@@ -8,11 +17,31 @@ body,
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  background: var(--color-kumo-canvas);
-  color: var(--text-color-kumo-default);
+  background: var(--dg-bg);
+  color: var(--dg-text);
+}
+
+.dg-panel {
+  background: var(--dg-surface);
+  border: 1px solid var(--dg-border);
+  border-radius: 16px;
+}
+
+.dg-gold {
+  color: var(--dg-gold);
+}
+
+.dg-muted {
+  color: var(--dg-muted);
+}
+
+.dg-rule {
+  height: 1px;
+  background: var(--dg-border);
+  border: 0;
 }

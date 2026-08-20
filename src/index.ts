@@ -2,9 +2,6 @@ import { Session } from "./Session";
 
 export { Session };
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -14,8 +11,8 @@ export default {
         return routeWebSocket(request, env, url);
       }
 
-      if (request.method === "GET" && url.pathname === "/health") {
-        return Response.json({ ok: true, service: "coyote-console" });
+      if (isWorkerHttpPath(url.pathname)) {
+        return handleHttp(url);
       }
 
       return env.ASSETS.fetch(request);
@@ -34,31 +31,71 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
+function isWorkerHttpPath(pathname: string): boolean {
+  return (
+    pathname === "/health" ||
+    pathname === "/ws" ||
+    pathname === "/v4" ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/ws/") ||
+    pathname.startsWith("/v4/")
+  );
+}
+
+function handleHttp(url: URL): Response {
+  if (url.pathname === "/health" || url.pathname === "/api/health") {
+    return Response.json({
+      ok: true,
+      service: "coyote-console",
+      protocol: "v4",
+    });
+  }
+
+  if (url.pathname === "/api/ok") {
+    return Response.json({ ok: true });
+  }
+
+  if (
+    url.pathname === "/ws" ||
+    url.pathname === "/v4" ||
+    url.pathname.startsWith("/ws/") ||
+    url.pathname.startsWith("/v4/")
+  ) {
+    return new Response("Expected Upgrade: websocket", { status: 426 });
+  }
+
+  return Response.json({ error: "Not Found" }, { status: 404 });
+}
+
 function routeWebSocket(
   request: Request,
   env: Env,
   url: URL,
 ): Promise<Response> | Response {
   const segs = url.pathname.split("/").filter(Boolean);
+  const tid = url.searchParams.get("tid");
 
-  if (segs.length === 0) {
+  // APP：/?tid=  或  /v4?tid=  或  /ws?tid=
+  if (tid) {
+    const dest = new URL(request.url);
+    dest.searchParams.set("role", "app");
+    dest.searchParams.set("sessionId", tid);
+    return env.SESSION.getByName(tid).fetch(new Request(dest, request));
+  }
+
+  // 控制端：/v4  /ws  /
+  if (
+    segs.length === 0 ||
+    (segs.length === 1 && (segs[0] === "v4" || segs[0] === "ws"))
+  ) {
     const clientId = crypto.randomUUID();
     const dest = new URL(request.url);
-    dest.pathname = `/${clientId}`;
     dest.searchParams.set("role", "controller");
     dest.searchParams.set("clientId", clientId);
     return env.SESSION.getByName(clientId).fetch(new Request(dest, request));
   }
 
-  if (segs.length === 1 && UUID_RE.test(segs[0])) {
-    const sessionId = segs[0];
-    const dest = new URL(request.url);
-    if (!dest.searchParams.get("role")) dest.searchParams.set("role", "app");
-    dest.searchParams.set("sessionId", sessionId);
-    return env.SESSION.getByName(sessionId).fetch(new Request(dest, request));
-  }
-
-  return new Response("Expected wss://host or wss://host/<uuid>", {
+  return new Response("Expected wss://host/v4 or wss://host/v4?tid=", {
     status: 400,
   });
 }

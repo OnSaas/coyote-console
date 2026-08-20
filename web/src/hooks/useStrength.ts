@@ -1,109 +1,111 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   STRENGTH_THROTTLE_MS,
-  strengthNudge,
-  strengthSet,
-  type StrengthFeedback,
+  V4Channel,
+  addIntensity,
+  clearOperate,
+  resetIntensity,
+  type RpcReq,
+  type V4ChannelId,
 } from "../lib/protocol";
+import type { StrengthFeedback } from "./useCoyoteSocket";
 
 type Channel = 1 | 2;
 
-export function useStrength(opts: {
+interface Options {
   canControl: boolean;
   remote: StrengthFeedback;
-  sendRaw: (message: string) => boolean;
+  slotId: string | null;
+  sendRpc: (req: RpcReq) => boolean;
   onBlocked: () => void;
-}) {
-  const [local, setLocal] = useState({ a: opts.remote.a, b: opts.remote.b });
+}
+
+export function useStrength({
+  canControl,
+  remote,
+  slotId,
+  sendRpc,
+  onBlocked,
+}: Options) {
+  const [local, setLocal] = useState({ a: remote.a, b: remote.b });
+  const lastSent = useRef({ a: remote.a, b: remote.b });
   const dragging = useRef({ a: false, b: false });
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pending = useRef<{ channel: Channel; value: number } | null>(null);
-  const sendRef = useRef(opts.sendRaw);
-  sendRef.current = opts.sendRaw;
-  const blockedRef = useRef(opts.onBlocked);
-  blockedRef.current = opts.onBlocked;
-  const canRef = useRef(opts.canControl);
-  canRef.current = opts.canControl;
+  const timer = useRef<number | null>(null);
 
   useEffect(() => {
     setLocal((prev) => ({
-      a: dragging.current.a ? prev.a : opts.remote.a,
-      b: dragging.current.b ? prev.b : opts.remote.b,
+      a: dragging.current.a ? prev.a : remote.a,
+      b: dragging.current.b ? prev.b : remote.b,
     }));
-  }, [opts.remote]);
+    if (!dragging.current.a) lastSent.current.a = remote.a;
+    if (!dragging.current.b) lastSent.current.b = remote.b;
+  }, [remote]);
 
-  useEffect(() => {
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
-
-  const flush = useCallback(() => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-    const next = pending.current;
-    pending.current = null;
-    if (!next) return;
-    sendRef.current(strengthSet(next.channel, next.value));
-  }, []);
-
-  const queueSet = useCallback(
-    (channel: Channel, value: number, immediate: boolean) => {
-      const key = channel === 1 ? "a" : "b";
-      const limit = channel === 1 ? opts.remote.aLimit : opts.remote.bLimit;
-      const clamped = Math.max(0, Math.min(limit || 200, Math.round(value)));
-      setLocal((prev) => ({ ...prev, [key]: clamped }));
-
-      if (!canRef.current) {
-        blockedRef.current();
+  const sendDelta = useCallback(
+    (ch: Channel, next: number) => {
+      if (!canControl || !slotId) {
+        onBlocked();
         return;
       }
-
-      pending.current = { channel, value: clamped };
-      if (immediate) {
-        flush();
-        return;
+      const key = ch === 1 ? "a" : "b";
+      const channel: V4ChannelId = ch === 1 ? V4Channel.A : V4Channel.B;
+      const delta = next - lastSent.current[key];
+      if (delta === 0) return;
+      if (sendRpc(addIntensity(slotId, channel, delta))) {
+        lastSent.current[key] = next;
       }
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(flush, STRENGTH_THROTTLE_MS);
     },
-    [flush, opts.remote.aLimit, opts.remote.bLimit],
+    [canControl, onBlocked, sendRpc, slotId],
   );
 
-  const setDragging = useCallback((channel: Channel, active: boolean) => {
-    const key = channel === 1 ? "a" : "b";
-    dragging.current[key] = active;
-    if (!active) flush();
-  }, [flush]);
+  const setChannel = useCallback(
+    (ch: Channel, raw: number, immediate = false) => {
+      const max = ch === 1 ? remote.aLimit : remote.bLimit;
+      const next = Math.max(0, Math.min(max || 200, Math.round(raw)));
+      const key = ch === 1 ? "a" : "b";
+      setLocal((prev) => ({ ...prev, [key]: next }));
+      dragging.current[key] = !immediate;
 
-  const nudge = useCallback((channel: Channel, up: boolean) => {
-    const key = channel === 1 ? "a" : "b";
-    const limit = channel === 1 ? opts.remote.aLimit : opts.remote.bLimit;
-    setLocal((prev) => {
-      const next = Math.max(0, Math.min(limit || 200, prev[key] + (up ? 1 : -1)));
-      return { ...prev, [key]: next };
-    });
-    if (!canRef.current) {
-      blockedRef.current();
-      return;
+      if (timer.current) window.clearTimeout(timer.current);
+      if (immediate) {
+        sendDelta(ch, next);
+        dragging.current[key] = false;
+        return;
+      }
+      timer.current = window.setTimeout(() => {
+        sendDelta(ch, next);
+        dragging.current[key] = false;
+      }, STRENGTH_THROTTLE_MS);
+    },
+    [remote.aLimit, remote.bLimit, sendDelta],
+  );
+
+  const nudge = useCallback(
+    (ch: Channel, up: boolean) => {
+      const key = ch === 1 ? "a" : "b";
+      setChannel(ch, local[key] + (up ? 1 : -1), true);
+    },
+    [local, setChannel],
+  );
+
+  const emergencyStop = useCallback(() => {
+    if (!canControl || !slotId) {
+      onBlocked();
+      return false;
     }
-    sendRef.current(strengthNudge(channel, up));
-  }, [opts.remote.aLimit, opts.remote.bLimit]);
-
-  const zeroLocal = useCallback(() => {
+    sendRpc(resetIntensity(slotId, V4Channel.A));
+    sendRpc(resetIntensity(slotId, V4Channel.B));
+    sendRpc(clearOperate(slotId));
+    lastSent.current = { a: 0, b: 0 };
     setLocal({ a: 0, b: 0 });
-  }, []);
+    return true;
+  }, [canControl, onBlocked, sendRpc, slotId]);
 
   return {
-    a: local.a,
-    b: local.b,
-    aLimit: opts.remote.aLimit,
-    bLimit: opts.remote.bLimit,
-    setChannel: queueSet,
-    setDragging,
+    local,
+    limits: { a: remote.aLimit, b: remote.bLimit },
+    setChannel,
     nudge,
-    zeroLocal,
+    emergencyStop,
   };
 }

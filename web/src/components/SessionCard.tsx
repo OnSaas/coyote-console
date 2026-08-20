@@ -1,41 +1,35 @@
 import { ClipboardText } from "@cloudflare/kumo/components/clipboard-text";
-import { LayerCard } from "@cloudflare/kumo/components/layer-card";
 import { Text } from "@cloudflare/kumo/components/text";
 
 interface Props {
-  clientId: string | null;
   targetId: string | null;
+  appId: string | null;
+  slotId: string | null;
   error: string | null;
 }
 
-export function SessionCard({ clientId, targetId, error }: Props) {
+export function SessionCard({ targetId, appId, slotId, error }: Props) {
   return (
-    <LayerCard>
-      <LayerCard.Secondary>会话信息</LayerCard.Secondary>
-      <LayerCard.Primary>
-        <div className="flex flex-col gap-4">
-          <IdRow label="控制端 ID" value={clientId} />
-          <IdRow label="APP ID" value={targetId} />
-          {error ? <Text variant="error">{error}</Text> : null}
-        </div>
-      </LayerCard.Primary>
-    </LayerCard>
+    <div className="flex flex-col gap-3">
+      <Text variant="heading3" as="h2">
+        会话
+      </Text>
+      <Field label="控制端 ID" value={targetId} />
+      <Field label="APP ID" value={appId} />
+      <Field label="设备 slot" value={slotId} />
+      {error ? <Text variant="error">{error}</Text> : null}
+    </div>
   );
 }
 
-function IdRow({ label, value }: { label: string; value: string | null }) {
+function Field({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex flex-col gap-1">
       <Text variant="secondary" size="xs">
         {label}
       </Text>
       {value ? (
-        <ClipboardText
-          text={value}
-          size="sm"
-          tooltip={{ text: "复制", copiedText: "已复制" }}
-          labels={{ copyAction: `复制${label}` }}
-        />
+        <ClipboardText text={value} size="sm" />
       ) : (
         <Text variant="mono" as="code">
           —

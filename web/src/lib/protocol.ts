@@ -1,76 +1,120 @@
-export const QR_PREFIX =
-  "https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#";
-
-export const MAX_STRENGTH = 200;
+export const QR_LANDING = "https://dungeon-lab.cn/s/";
 export const STRENGTH_THROTTLE_MS = 120;
+export const MAX_STRENGTH = 200;
 
-export type MessageType = "bind" | "msg" | "heartbeat" | "break" | "error";
+export const V4Channel = { A: 0, B: 1 } as const;
+export type V4ChannelId = (typeof V4Channel)[keyof typeof V4Channel];
 
-export interface DGLabMessage {
-  type: MessageType;
-  clientId: string;
-  targetId: string;
-  message: string;
+export interface ServerFrame {
+  type: string;
+  clientId?: string;
+  data?: unknown;
+  ts?: number;
 }
 
-export function isDGLabMessage(value: unknown): value is DGLabMessage {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  return (
-    typeof v.type === "string" &&
-    typeof v.clientId === "string" &&
-    typeof v.targetId === "string" &&
-    typeof v.message === "string"
+export interface RpcReq {
+  t: "req";
+  reqId: string;
+  m: string;
+  data?: unknown;
+}
+
+export interface RpcResp {
+  t: "resp";
+  reqId: string;
+  result?: unknown;
+  error?: string;
+}
+
+export interface EvFrame {
+  t: "ev";
+  ev: string;
+  [key: string]: unknown;
+}
+
+export interface RemoteDevice {
+  id?: number;
+  slotId: string;
+  name: string;
+  type: string;
+  props?: Record<string, unknown>;
+  slotState?: Record<string, unknown>;
+}
+
+export function relayWsUrl(origin: string): string {
+  return origin.replace(/^http/, "ws").replace(/\/$/, "") + "/v4";
+}
+
+export function appWsUrl(origin: string, targetId: string): string {
+  return `${relayWsUrl(origin)}?tid=${encodeURIComponent(targetId)}`;
+}
+
+export function qrPayload(origin: string, targetId: string): string {
+  return `${QR_LANDING}?v=1&action=socket&url=${encodeURIComponent(appWsUrl(origin, targetId))}`;
+}
+
+export function rpcReq(m: string, data?: unknown): RpcReq {
+  return { t: "req", reqId: crypto.randomUUID(), m, data };
+}
+
+export function addIntensity(
+  slotId: string,
+  channel: V4ChannelId,
+  delta: number,
+): RpcReq {
+  return rpcReq("device.op", {
+    s: slotId,
+    t: 3,
+    c: channel,
+    p: 1,
+    im: true,
+    v: delta,
+  });
+}
+
+export function resetIntensity(slotId: string, channel: V4ChannelId): RpcReq {
+  return rpcReq("device.op", {
+    s: slotId,
+    t: 7,
+    c: channel,
+    p: 2,
+    im: true,
+    v: 0,
+  });
+}
+
+export function clearOperate(slotId?: string): RpcReq {
+  return slotId
+    ? rpcReq("device.op.clear", { s: slotId })
+    : rpcReq("device.op.clear");
+}
+
+export function isServerFrame(value: unknown): value is ServerFrame {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      typeof (value as ServerFrame).type === "string",
   );
 }
 
-export function relayWsUrl(relayOrigin: string): string {
-  return relayOrigin.replace(/^http/, "ws").replace(/\/$/, "") + "/";
-}
-
-export function qrPayload(relayOrigin: string, clientId: string): string {
-  const ws = relayOrigin.replace(/^http/, "ws").replace(/\/$/, "");
-  return `${QR_PREFIX}${ws}/${clientId}`;
-}
-
-export function sendStrength(channel: 1 | 2, mode: 0 | 1 | 2, value: number): string {
-  const n = Math.max(0, Math.min(MAX_STRENGTH, Math.round(value)));
-  return `strength-${channel}+${mode}+${n}`;
-}
-
-export function strengthSet(channel: 1 | 2, value: number): string {
-  return sendStrength(channel, 2, value);
-}
-
-export function strengthNudge(channel: 1 | 2, up: boolean): string {
-  return sendStrength(channel, up ? 1 : 0, 1);
-}
-
-export function sendClear(channel: 1 | 2): string {
-  return `clear-${channel}`;
-}
-
-export interface StrengthFeedback {
+export function readIntensity(device: RemoteDevice): {
   a: number;
   b: number;
   aLimit: number;
   bLimit: number;
-}
-
-export function parseStrengthFeedback(
-  message: string,
-): StrengthFeedback | null {
-  const m = /^strength-(\d+)\+(\d+)\+(\d+)\+(\d+)$/.exec(message);
-  if (!m) return null;
+} {
+  const props = device.props ?? {};
+  const state = device.slotState ?? {};
+  const channelA = (state.channelA ?? {}) as Record<string, unknown>;
+  const channelB = (state.channelB ?? {}) as Record<string, unknown>;
   return {
-    a: Number(m[1]),
-    b: Number(m[2]),
-    aLimit: Number(m[3]),
-    bLimit: Number(m[4]),
+    a: num(props.intensityA),
+    b: num(props.intensityB),
+    aLimit: num(channelA.intensityMax, 200),
+    bLimit: num(channelB.intensityMax, 200),
   };
 }
 
-export function parseFeedback(message: string): number | null {
-  const m = /^feedback-(\d+)$/.exec(message);
-  return m ? Number(m[1]) : null;
+function num(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }

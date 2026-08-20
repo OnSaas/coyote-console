@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  isDGLabMessage,
-  parseFeedback,
-  parseStrengthFeedback,
+  isServerFrame,
   qrPayload,
+  readIntensity,
   relayWsUrl,
-  sendClear,
-  strengthSet,
-  type StrengthFeedback,
+  type RemoteDevice,
+  type RpcReq,
+  type ServerFrame,
 } from "../lib/protocol";
 
 export type ConnState =
@@ -24,11 +23,11 @@ export interface RelayEvent {
   description?: string;
 }
 
-function defaultRelayOrigin(): string {
-  if (import.meta.env.DEV) {
-    return import.meta.env.VITE_RELAY_ORIGIN || "http://127.0.0.1:8787";
-  }
-  return window.location.origin;
+export interface StrengthFeedback {
+  a: number;
+  b: number;
+  aLimit: number;
+  bLimit: number;
 }
 
 const EMPTY_STRENGTH: StrengthFeedback = {
@@ -38,20 +37,24 @@ const EMPTY_STRENGTH: StrengthFeedback = {
   bLimit: 200,
 };
 
+function defaultRelayOrigin(): string {
+  if (import.meta.env.DEV) {
+    return import.meta.env.VITE_RELAY_ORIGIN || "http://127.0.0.1:8787";
+  }
+  return window.location.origin;
+}
+
 export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
   const [state, setState] = useState<ConnState>("idle");
-  const [clientId, setClientId] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string | null>(null);
-  const [remoteStrength, setRemoteStrength] =
-    useState<StrengthFeedback>(EMPTY_STRENGTH);
+  const [appId, setAppId] = useState<string | null>(null);
+  const [devices, setDevices] = useState<RemoteDevice[]>([]);
+  const [strength, setStrength] = useState<StrengthFeedback>(EMPTY_STRENGTH);
   const [error, setError] = useState<string | null>(null);
   const [relayOrigin] = useState(defaultRelayOrigin);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const idsRef = useRef({
-    clientId: null as string | null,
-    targetId: null as string | null,
-  });
+  const appIdRef = useRef<string | null>(null);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
@@ -59,117 +62,146 @@ export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
     onEventRef.current(event);
   }, []);
 
-  const sendRaw = useCallback((message: string) => {
-    const ws = wsRef.current;
-    const { clientId: cid, targetId: tid } = idsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN || !cid || !tid) return false;
-    ws.send(
-      JSON.stringify({
-        type: "msg",
-        clientId: cid,
-        targetId: tid,
-        message,
-      }),
+  const applyDeviceList = useCallback((list: RemoteDevice[]) => {
+    setDevices(list);
+    const coyote = list.find(
+      (d) => d.type === "COYOTE_030" || d.type === "COYOTE_020" || d.slotId,
     );
-    return true;
+    if (coyote) setStrength(readIntensity(coyote));
   }, []);
 
-  const handleMessage = useCallback(
-    (raw: string) => {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
+  const handleFrame = useCallback(
+    (frame: ServerFrame) => {
+      if (frame.type === "heartbeat" || frame.type === "pong") return;
+
+      if (frame.type === "hello" && frame.clientId) {
+        setTargetId(frame.clientId);
+        setState("waiting");
+        emit({ kind: "info", title: "已连接中继", description: "用 4.0 APP 扫码配对" });
         return;
       }
-      if (!isDGLabMessage(parsed)) return;
-      if (parsed.type === "heartbeat") return;
 
-      if (parsed.type === "bind") {
-        if (parsed.message === "targetId" && parsed.clientId) {
-          setClientId(parsed.clientId);
-          idsRef.current.clientId = parsed.clientId;
+      if (frame.type === "client_attached" && frame.clientId) {
+        setAppId(frame.clientId);
+        appIdRef.current = frame.clientId;
+        setState("paired");
+        emit({ kind: "success", title: "APP 已接入" });
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "message",
+              clientId: frame.clientId,
+              data: { t: "req", reqId: crypto.randomUUID(), m: "devices.get" },
+            }),
+          );
+        }
+        return;
+      }
+
+      if (frame.type === "client_disconnected") {
+        if (frame.clientId === appIdRef.current) {
+          setAppId(null);
+          appIdRef.current = null;
+          setDevices([]);
+          setStrength(EMPTY_STRENGTH);
           setState("waiting");
-          emit({
-            kind: "info",
-            title: "已连接中继",
-            description: "用 APP 扫码配对",
-          });
-          return;
-        }
-        if (parsed.message === "200" && parsed.targetId) {
-          setTargetId(parsed.targetId);
-          idsRef.current.targetId = parsed.targetId;
-          setState("paired");
-          emit({ kind: "success", title: "配对成功" });
-          return;
-        }
-        if (parsed.message === "400") {
-          setError("该控制端已被绑定");
-          setState("error");
-          emit({ kind: "error", title: "配对失败", description: "ID 已被绑定" });
+          emit({ kind: "warning", title: "APP 已断开" });
         }
         return;
       }
 
-      if (parsed.type === "break") {
-        setTargetId(null);
-        idsRef.current.targetId = null;
-        setState("disconnected");
-        emit({ kind: "warning", title: "APP 已断开" });
+      if (frame.type === "idle_timeout") {
+        emit({ kind: "warning", title: "空闲超时", description: "5 分钟无 APP 接入" });
         return;
       }
 
-      if (parsed.type === "error") {
+      if (frame.type === "error") {
         emit({
           kind: "error",
           title: "中继错误",
-          description: parsed.message,
+          description: String(frame.data ?? ""),
         });
         return;
       }
 
-      if (parsed.type === "msg") {
-        const fb = parseStrengthFeedback(parsed.message);
-        if (fb) {
-          setRemoteStrength(fb);
+      if (frame.type === "message") {
+        const data = frame.data as Record<string, unknown> | undefined;
+        if (!data || typeof data !== "object") return;
+
+        if (data.t === "ev" && data.ev === "devices.snapshot") {
+          applyDeviceList((data.devices as RemoteDevice[]) ?? []);
           return;
         }
-        const btn = parseFeedback(parsed.message);
-        if (btn !== null) {
+
+        if (data.t === "ev" && data.ev === "devices.patch") {
+          const added = (data.added as RemoteDevice[]) ?? [];
+          const removed = new Set((data.removed as string[]) ?? []);
+          setDevices((prev) => {
+            const next = prev
+              .filter((d) => !removed.has(d.slotId))
+              .concat(added);
+            const coyote = next.find((d) => d.slotId);
+            if (coyote) setStrength(readIntensity(coyote));
+            return next;
+          });
+          return;
+        }
+
+        if (data.t === "ev" && data.ev === "slots.patch") {
+          const slots = (data.slots as RemoteDevice[]) ?? [];
+          setDevices((prev) => {
+            const map = new Map(prev.map((d) => [d.slotId, d]));
+            for (const slot of slots) {
+              const cur = map.get(slot.slotId);
+              if (!cur) continue;
+              map.set(slot.slotId, {
+                ...cur,
+                props: { ...cur.props, ...slot.props },
+                slotState: { ...cur.slotState, ...slot.slotState },
+              });
+            }
+            const next = [...map.values()];
+            const coyote = next.find((d) => d.slotId);
+            if (coyote) setStrength(readIntensity(coyote));
+            return next;
+          });
+          return;
+        }
+
+        if (data.t === "resp" && data.result && typeof data.result === "object") {
+          const list = (data.result as { devices?: RemoteDevice[] }).devices;
+          if (Array.isArray(list)) applyDeviceList(list);
+          return;
+        }
+
+        if (data.t === "ev" && data.ev === "custom.action") {
           emit({
             kind: "info",
             title: "APP 反馈",
-            description: `按钮 ${btn}`,
+            description: `动作 ${String(data.action)}`,
           });
         }
       }
     },
-    [emit],
+    [applyDeviceList, emit],
   );
 
   const disconnect = useCallback(() => {
     const ws = wsRef.current;
     wsRef.current = null;
     if (ws && ws.readyState < WebSocket.CLOSING) ws.close(1000, "client");
-    setClientId(null);
     setTargetId(null);
-    idsRef.current = { clientId: null, targetId: null };
-    setRemoteStrength(EMPTY_STRENGTH);
+    setAppId(null);
+    appIdRef.current = null;
+    setDevices([]);
+    setStrength(EMPTY_STRENGTH);
     setError(null);
     setState("idle");
-    emit({ kind: "info", title: "已断开中继" });
-  }, [emit]);
+  }, []);
 
   const connect = useCallback(() => {
-    const prev = wsRef.current;
-    wsRef.current = null;
-    if (prev && prev.readyState < WebSocket.CLOSING) prev.close(1000, "reconnect");
-
-    setClientId(null);
-    setTargetId(null);
-    idsRef.current = { clientId: null, targetId: null };
-    setRemoteStrength(EMPTY_STRENGTH);
+    disconnect();
     setState("connecting");
     setError(null);
 
@@ -178,22 +210,27 @@ export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
 
     ws.onmessage = (ev) => {
       if (wsRef.current !== ws) return;
-      if (typeof ev.data === "string") handleMessage(ev.data);
+      if (typeof ev.data !== "string") return;
+      try {
+        const parsed: unknown = JSON.parse(ev.data);
+        if (isServerFrame(parsed)) handleFrame(parsed);
+      } catch {
+        /* ignore */
+      }
     };
 
     ws.onerror = () => {
       if (wsRef.current !== ws) return;
       setError("WebSocket 连接失败");
-      setState("error");
       emit({ kind: "error", title: "连接失败" });
     };
 
     ws.onclose = () => {
       if (wsRef.current !== ws) return;
       wsRef.current = null;
-      setState((prevState) => (prevState === "idle" ? prevState : "disconnected"));
+      setState((prev) => (prev === "idle" ? prev : "disconnected"));
     };
-  }, [emit, handleMessage, relayOrigin]);
+  }, [disconnect, emit, handleFrame, relayOrigin]);
 
   useEffect(() => {
     return () => {
@@ -203,34 +240,38 @@ export function useCoyoteSocket(onEvent: (event: RelayEvent) => void) {
     };
   }, []);
 
-  const emergencyStop = useCallback(() => {
-    const ok =
-      sendRaw(strengthSet(1, 0)) &&
-      sendRaw(strengthSet(2, 0)) &&
-      sendRaw(sendClear(1)) &&
-      sendRaw(sendClear(2));
-    if (ok) {
-      setRemoteStrength((s) => ({ ...s, a: 0, b: 0 }));
-      emit({
-        kind: "success",
-        title: "已归零并清除波形",
-      });
-    } else {
-      emit({ kind: "warning", title: "尚未配对，无法下发急停" });
-    }
-  }, [emit, sendRaw]);
+  const sendRpc = useCallback(
+    (req: RpcReq) => {
+      const ws = wsRef.current;
+      const clientId = appIdRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN || !clientId) return false;
+      ws.send(
+        JSON.stringify({
+          type: "message",
+          clientId,
+          data: req,
+        }),
+      );
+      return true;
+    },
+    [],
+  );
+
+  const qrUrl = targetId ? qrPayload(relayOrigin, targetId) : null;
+  const slotId = devices[0]?.slotId ?? null;
 
   return {
     state,
-    clientId,
     targetId,
-    remoteStrength,
+    appId,
+    slotId,
+    devices,
+    strength,
     error,
     relayOrigin,
-    qrUrl: clientId ? qrPayload(relayOrigin, clientId) : null,
-    sendRaw,
+    qrUrl,
     connect,
     disconnect,
-    emergencyStop,
+    sendRpc,
   };
 }

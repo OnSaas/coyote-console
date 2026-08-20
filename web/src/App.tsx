@@ -1,25 +1,13 @@
 import { Toasty, useKumoToastManager } from "@cloudflare/kumo/components/toast";
 import { useCallback } from "react";
-import { EmergencyStop } from "./components/EmergencyStop";
 import { Header } from "./components/Header";
 import { PairingCard } from "./components/PairingCard";
 import { SessionCard } from "./components/SessionCard";
 import { StrengthPanel } from "./components/StrengthPanel";
-import {
-  type RelayEvent,
-  useCoyoteSocket,
-} from "./hooks/useCoyoteSocket";
+import { useCoyoteSocket, type RelayEvent } from "./hooks/useCoyoteSocket";
 import { useStrength } from "./hooks/useStrength";
 
 export default function App() {
-  return (
-    <Toasty>
-      <Console />
-    </Toasty>
-  );
-}
-
-function Console() {
   const toast = useKumoToastManager();
   const onEvent = useCallback(
     (event: RelayEvent) => {
@@ -32,60 +20,62 @@ function Console() {
     [toast],
   );
 
-  const socket = useCoyoteSocket(onEvent);
-  const canControl = socket.state === "paired";
+  const relay = useCoyoteSocket(onEvent);
+  const canControl = relay.state === "paired" && Boolean(relay.slotId);
   const strength = useStrength({
     canControl,
-    remote: socket.remoteStrength,
-    sendRaw: socket.sendRaw,
-    onBlocked: () => {
+    remote: relay.strength,
+    slotId: relay.slotId,
+    sendRpc: relay.sendRpc,
+    onBlocked: () =>
       toast.add({
-        title: "尚未配对",
-        description: "扫码完成后再调强度",
+        title: "尚未配对或无设备",
         variant: "warning",
-      });
-    },
+      }),
   });
 
-  const handleStop = useCallback(() => {
-    strength.zeroLocal();
-    socket.emergencyStop();
-  }, [socket, strength]);
-
   return (
-    <div className="min-h-dvh bg-kumo-canvas text-kumo-default">
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-6 pb-28 md:pb-8">
-        <Header
-          state={socket.state}
-          onConnect={socket.connect}
-          onDisconnect={socket.disconnect}
-        />
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <PairingCard qrUrl={socket.qrUrl} />
-          <SessionCard
-            clientId={socket.clientId}
-            targetId={socket.targetId}
-            error={socket.error}
+    <Toasty>
+      <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-4 py-6 pb-28">
+        <section className="dg-panel flex flex-col gap-6 p-5">
+          <Header
+            state={relay.state}
+            onConnect={relay.connect}
+            onDisconnect={relay.disconnect}
           />
-        </div>
-
-        <StrengthPanel
-          a={strength.a}
-          b={strength.b}
-          aLimit={strength.aLimit}
-          bLimit={strength.bLimit}
-          canControl={canControl}
-          onSet={(ch, v, immediate) => strength.setChannel(ch, v, Boolean(immediate))}
-          onDrag={strength.setDragging}
-          onNudge={strength.nudge}
-          onStop={handleStop}
-        />
+          <hr className="dg-rule" />
+          <div className="grid gap-6 md:grid-cols-2">
+            <PairingCard
+              qrUrl={relay.qrUrl}
+              waiting={relay.state === "waiting"}
+            />
+            <SessionCard
+              targetId={relay.targetId}
+              appId={relay.appId}
+              slotId={relay.slotId}
+              error={relay.error}
+            />
+          </div>
+          <hr className="dg-rule" />
+          <StrengthPanel
+            a={strength.local.a}
+            b={strength.local.b}
+            aLimit={strength.limits.a}
+            bLimit={strength.limits.b}
+            canControl={canControl}
+            onSet={strength.setChannel}
+            onNudge={strength.nudge}
+            onStop={() => {
+              if (strength.emergencyStop()) {
+                toast.add({
+                  title: "已归零并清除波形",
+                  variant: "success",
+                });
+              }
+            }}
+          />
+        </section>
       </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-kumo-line bg-kumo-base p-3 md:hidden">
-        <EmergencyStop onStop={handleStop} />
-      </div>
-    </div>
+    </Toasty>
   );
 }
