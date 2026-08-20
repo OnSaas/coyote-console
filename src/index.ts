@@ -46,7 +46,7 @@ function handleHttp(request: Request, url: URL): Response {
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     return Response.json({
       ok: true,
-      service: "coyote-console",
+      service: "dg-hub",
       protocol: "v4",
     });
   }

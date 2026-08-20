@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "coyote-console",
+  "name": "dg-hub",
   "account_id": "22788d96116325ff531105e98c23bc95",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-19",

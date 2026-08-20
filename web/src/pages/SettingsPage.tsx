@@ -111,7 +111,7 @@ export function SettingsPage() {
 
       <section className="dg-panel px-5 py-4">
         <SectionTitle>关于</SectionTitle>
-        <Text variant="secondary">Coyote Console 0.1.0 · Socket V4</Text>
+        <Text variant="secondary">DG-HUB 0.1.0 · Socket V4</Text>
         <Text variant="secondary" size="xs">
           非官方网页主控。记录仅存本机浏览器。
         </Text>

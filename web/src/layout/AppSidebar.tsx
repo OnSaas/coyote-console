@@ -31,7 +31,7 @@ export function AppSidebar() {
             <Lightning size={20} weight="fill" className="dg-gold shrink-0" />
             {open || isMobile ? (
               <Text variant="heading3" as="span">
-                Coyote
+                DG-HUB
               </Text>
             ) : null}
           </div>

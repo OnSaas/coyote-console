@@ -1,13 +1,13 @@
-# coyote-console
+# DG-HUB
 
 Cloudflare Workers + Durable Objects，DG-Lab **Socket V4** 网页主控。被控端：DG-LAB 4.0 APP。
 
-线上：https://coyote-console.onw.workers.dev
+线上：https://dg-hub.onw.workers.dev
 
 ## 连接
 
-- 控制端：`wss://<host>/v4` → `{ type: "hello", clientId }`
-- APP：`wss://<host>/v4?tid=<clientId>`
+- 控制端：`wss://<host>/ws` → `{ type: "hello", clientId }`
+- APP：`wss://<host>/ws?tid=<clientId>`
 - 二维码：`https://dungeon-lab.cn/s/?v=1&action=socket&url=<encodeURIComponent(APP_WS)>`
 
 `/api/*`、`/health`、`/ws`、`/v4` 走 Worker；页面走 Assets。

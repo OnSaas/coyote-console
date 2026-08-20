@@ -38,7 +38,7 @@ export function Header({ state, onConnect, onDisconnect }: Props) {
         <Lightning size={28} weight="fill" className="dg-gold" />
         <div>
           <Text variant="heading2" as="h1">
-            Coyote Console
+            DG-HUB
           </Text>
           <Text variant="secondary">DG-LAB 4.0 · Socket V4</Text>
         </div>

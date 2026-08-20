@@ -65,7 +65,7 @@ export function formatClock(ts: number): string {
 
 export function shareText(rec: SessionRecord): string {
   return [
-    "Coyote 战绩",
+    "DG-HUB 战绩",
     `时长 ${formatDuration(rec.durationMs)}`,
     `最高 A ${rec.maxA} / B ${rec.maxB}`,
     formatClock(rec.startedAt),

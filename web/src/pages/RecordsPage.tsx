@@ -237,7 +237,7 @@ function ShareDialog({ rec, onClose }: { rec: SessionRecord; onClose: () => void
     const url = await toPng(cardRef.current, { pixelRatio: 2 });
     const a = document.createElement("a");
     a.href = url;
-    a.download = `coyote-${rec.id.slice(0, 8)}.png`;
+    a.download = `dg-hub-${rec.id.slice(0, 8)}.png`;
     a.click();
   }
 
@@ -255,7 +255,7 @@ function ShareDialog({ rec, onClose }: { rec: SessionRecord; onClose: () => void
             ref={cardRef}
             className="w-[320px] rounded-xl border border-[var(--dg-gold)] bg-[var(--dg-bg)] p-5 text-[var(--dg-text)]"
           >
-            <div className="dg-gold mb-3 text-sm">DG-LAB · Coyote 战绩</div>
+            <div className="dg-gold mb-3 text-sm">DG-LAB · DG-HUB 战绩</div>
             <div className="dg-muted mb-4 text-xs">{formatClock(rec.startedAt)}</div>
             <div className="mb-2">时长 {formatDuration(rec.durationMs)}</div>
             <div className="mb-2">
