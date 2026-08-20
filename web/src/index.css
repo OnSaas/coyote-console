@@ -10,14 +10,14 @@
   --dg-border: #2a2a2a;
 }
 
+html {
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
-  min-height: 100%;
-}
-
-html {
-  color-scheme: dark;
+  min-height: 100dvh;
 }
 
 body {

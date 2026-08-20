@@ -3,7 +3,24 @@ import { ClipboardText } from "@cloudflare/kumo/components/clipboard-text";
 import { Dialog } from "@cloudflare/kumo/components/dialog";
 import { Text } from "@cloudflare/kumo/components/text";
 import { MagnifyingGlassPlus, QrCode } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+
+function useQrSize() {
+  const [size, setSize] = useState(200);
+  useEffect(() => {
+    const apply = () => {
+      const w = window.innerWidth;
+      if (w < 380) setSize(160);
+      else if (w < 768) setSize(188);
+      else setSize(220);
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, []);
+  return size;
+}
 
 interface Props {
   qrUrl: string | null;
@@ -11,6 +28,7 @@ interface Props {
 }
 
 export function PairingCard({ qrUrl, waiting }: Props) {
+  const qrSize = useQrSize();
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 dg-gold">
@@ -22,7 +40,7 @@ export function PairingCard({ qrUrl, waiting }: Props) {
       {qrUrl ? (
         <div className="flex flex-col items-center gap-3">
           <div className="rounded-lg bg-white p-3">
-            <QRCodeSVG value={qrUrl} size={200} level="M" includeMargin={false} />
+            <QRCodeSVG value={qrUrl} size={qrSize} level="M" includeMargin={false} />
           </div>
           <Dialog.Root>
             <Dialog.Trigger

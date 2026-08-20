@@ -1,6 +1,6 @@
 import { Badge } from "@cloudflare/kumo/components/badge";
 import { Button } from "@cloudflare/kumo/components/button";
-import { Sidebar } from "@cloudflare/kumo/components/sidebar";
+import { Sidebar, useSidebar } from "@cloudflare/kumo/components/sidebar";
 import { Text } from "@cloudflare/kumo/components/text";
 import {
   ChartBar,
@@ -34,14 +34,40 @@ const STATE_BADGE: Record<
   error: { label: "错误", variant: "error" },
 };
 
-export function AppShell() {
-  const { relay, emergencyStop } = useConsole();
+function NavItems() {
   const loc = useLocation();
   const nav = useNavigate();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  return (
+    <Sidebar.Menu>
+      {NAV.map((item) => {
+        const active =
+          item.to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(item.to);
+        return (
+          <Sidebar.MenuButton
+            key={item.to}
+            icon={item.icon}
+            active={active}
+            onClick={() => {
+              nav(item.to);
+              if (isMobile) setOpenMobile(false);
+            }}
+          >
+            {item.label}
+          </Sidebar.MenuButton>
+        );
+      })}
+    </Sidebar.Menu>
+  );
+}
+
+export function AppShell() {
+  const { relay, emergencyStop } = useConsole();
   const badge = STATE_BADGE[relay.state];
 
   return (
-    <Sidebar.Provider defaultOpen>
+    <Sidebar.Provider defaultOpen collapsible="icon" mobileBreakpoint={768}>
       <div className="flex min-h-dvh bg-[var(--dg-bg)] text-[var(--dg-text)]">
         <Sidebar className="border-r border-[var(--dg-border)] bg-[var(--dg-surface)]">
           <Sidebar.Header>
@@ -53,30 +79,13 @@ export function AppShell() {
             </div>
           </Sidebar.Header>
           <Sidebar.Content>
-            <Sidebar.Menu>
-              {NAV.map((item) => {
-                const active =
-                  item.to === "/"
-                    ? loc.pathname === "/"
-                    : loc.pathname.startsWith(item.to);
-                return (
-                  <Sidebar.MenuButton
-                    key={item.to}
-                    icon={item.icon}
-                    active={active}
-                    onClick={() => nav(item.to)}
-                  >
-                    {item.label}
-                  </Sidebar.MenuButton>
-                );
-              })}
-            </Sidebar.Menu>
+            <NavItems />
           </Sidebar.Content>
         </Sidebar>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 items-center justify-between gap-3 border-b border-[var(--dg-border)] bg-[var(--dg-surface)] px-3">
-            <div className="flex items-center gap-2">
+          <header className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b border-[var(--dg-border)] bg-[var(--dg-surface)] px-2 pt-[env(safe-area-inset-top)] sm:h-14 sm:px-3">
+            <div className="flex min-w-0 items-center gap-2">
               <Sidebar.Trigger aria-label="菜单" />
               <Badge variant={badge.variant}>{badge.label}</Badge>
             </div>
@@ -89,7 +98,7 @@ export function AppShell() {
               急停
             </Button>
           </header>
-          <main className="flex-1 overflow-auto p-4 md:p-6">
+          <main className="flex-1 overflow-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 md:p-6">
             <div className="mx-auto max-w-4xl">
               <Outlet />
             </div>
