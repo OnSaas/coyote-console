@@ -1,12 +1,13 @@
 import { Button } from "@cloudflare/kumo/components/button";
 import { Dialog } from "@cloudflare/kumo/components/dialog";
 import { Input } from "@cloudflare/kumo/components/input";
-import { LayerCard } from "@cloudflare/kumo/components/layer-card";
 import { Switch } from "@cloudflare/kumo/components/switch";
 import { Text } from "@cloudflare/kumo/components/text";
 import { useKumoToastManager } from "@cloudflare/kumo/components/toast";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { PageHeader } from "../layout/PageHeader";
+import { DEFAULT_SETTINGS } from "../lib/settings";
 import { useConsole } from "../state/ConsoleProvider";
 
 export function SettingsPage() {
@@ -15,69 +16,106 @@ export function SettingsPage() {
   const [clearOpen, setClearOpen] = useState(false);
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
-      <PageHeader title="设置" description="安全上限、记录与关于。刷新后保持。" />
-
-      <LayerCard>
-        <LayerCard.Secondary>安全</LayerCard.Secondary>
-        <LayerCard.Primary className="flex flex-col gap-4">
-          <Input
-            label="A 通道软件上限"
-            description="控制台滑条最大值，且不超过 200"
-            type="number"
-            min={0}
-            max={200}
-            value={String(settings.aCap)}
-            onChange={(e) => patchSettings({ aCap: clamp(Number(e.currentTarget.value)) })}
-          />
-          <Input
-            label="B 通道软件上限"
-            description="控制台滑条最大值，且不超过 200"
-            type="number"
-            min={0}
-            max={200}
-            value={String(settings.bCap)}
-            onChange={(e) => patchSettings({ bCap: clamp(Number(e.currentTarget.value)) })}
-          />
-          <Row
-            label="急停需确认"
-            hint="开启后急停先弹出确认框"
-            checked={settings.confirmStop}
-            onChange={(v) => patchSettings({ confirmStop: v })}
-          />
-        </LayerCard.Primary>
-      </LayerCard>
-
-      <LayerCard>
-        <LayerCard.Secondary>记录</LayerCard.Secondary>
-        <LayerCard.Primary className="flex flex-col gap-4">
-          <Row
-            label="自动保存战绩"
-            hint="配对成功起算，断开时落库"
-            checked={settings.autoSave}
-            onChange={(v) => patchSettings({ autoSave: v })}
-          />
-          <Row
-            label="结束时询问备注"
-            hint="结束并保存时弹出备注"
-            checked={settings.askNote}
-            onChange={(v) => patchSettings({ askNote: v })}
-          />
-          <Button variant="secondary" onClick={() => setClearOpen(true)}>
-            清除本地记录
+    <>
+      <PageHeader
+        title="设置"
+        description="改完即保存，刷新后保持。"
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              patchSettings({ ...DEFAULT_SETTINGS });
+              toast.add({ title: "已恢复默认", variant: "success" });
+            }}
+          >
+            恢复默认
           </Button>
-        </LayerCard.Primary>
-      </LayerCard>
+        }
+      />
 
-      <LayerCard>
-        <LayerCard.Secondary>关于</LayerCard.Secondary>
-        <LayerCard.Primary className="flex flex-col gap-2">
-          <Text variant="secondary">Coyote Console 0.1.0 · Socket V4</Text>
-          <Text variant="secondary" size="xs">
-            非官方网页主控。记录仅存本机浏览器。
-          </Text>
-        </LayerCard.Primary>
-      </LayerCard>
+      <section className="dg-panel px-5 py-2">
+        <SectionTitle>安全</SectionTitle>
+        <FormRow
+          label="A 通道软件上限"
+          hint="控制台滑条最大值，不超过 200"
+          control={
+            <Input
+              type="number"
+              min={0}
+              max={200}
+              size="sm"
+              value={String(settings.aCap)}
+              onChange={(e) => patchSettings({ aCap: clamp(Number(e.currentTarget.value)) })}
+            />
+          }
+        />
+        <FormRow
+          label="B 通道软件上限"
+          hint="控制台滑条最大值，不超过 200"
+          control={
+            <Input
+              type="number"
+              min={0}
+              max={200}
+              size="sm"
+              value={String(settings.bCap)}
+              onChange={(e) => patchSettings({ bCap: clamp(Number(e.currentTarget.value)) })}
+            />
+          }
+        />
+        <FormRow
+          label="急停需确认"
+          hint="开启后急停先弹出确认框"
+          control={
+            <Switch
+              checked={settings.confirmStop}
+              onCheckedChange={(v) => patchSettings({ confirmStop: v })}
+            />
+          }
+        />
+      </section>
+
+      <section className="dg-panel px-5 py-2">
+        <SectionTitle>记录</SectionTitle>
+        <FormRow
+          label="自动保存战绩"
+          hint="配对成功起算，断开时落库"
+          control={
+            <Switch
+              checked={settings.autoSave}
+              onCheckedChange={(v) => patchSettings({ autoSave: v })}
+            />
+          }
+        />
+        <FormRow
+          label="结束时询问备注"
+          hint="结束并保存时弹出备注"
+          control={
+            <Switch
+              checked={settings.askNote}
+              onCheckedChange={(v) => patchSettings({ askNote: v })}
+            />
+          }
+        />
+        <FormRow
+          label="清除本地记录"
+          hint="只清本机浏览器数据"
+          control={
+            <Button variant="secondary" size="sm" onClick={() => setClearOpen(true)}>
+              清空
+            </Button>
+          }
+        />
+      </section>
+
+      <section className="dg-panel px-5 py-4">
+        <SectionTitle>关于</SectionTitle>
+        <Text variant="secondary">Coyote Console 0.1.0 · Socket V4</Text>
+        <Text variant="secondary" size="xs">
+          非官方网页主控。记录仅存本机浏览器。
+        </Text>
+      </section>
 
       {clearOpen ? (
         <Dialog.Root open onOpenChange={(o) => !o && setClearOpen(false)}>
@@ -102,30 +140,36 @@ export function SettingsPage() {
           </Dialog>
         </Dialog.Root>
       ) : null}
+    </>
+  );
+}
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <div className="pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-[var(--dg-muted)]">
+      {children}
     </div>
   );
 }
 
-function Row({
+function FormRow({
   label,
   hint,
-  checked,
-  onChange,
+  control,
 }: {
   label: string;
   hint: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
+  control: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div>
+    <div className="dg-form-row">
+      <div className="min-w-0">
         <Text variant="body">{label}</Text>
         <Text variant="secondary" size="xs">
           {hint}
         </Text>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <div className="w-[140px] shrink-0">{control}</div>
     </div>
   );
 }

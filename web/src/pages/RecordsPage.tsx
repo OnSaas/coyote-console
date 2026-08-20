@@ -45,23 +45,23 @@ export function RecordsPage() {
         title="记录"
         description="自动保存与手动记一笔，数据只在本机。"
         actions={
-        <div className="flex flex-wrap gap-2">
-          {(["today", "week", "all"] as const).map((f) => (
-            <Button
-              key={f}
-              size="sm"
-              variant={filter === f ? "primary" : "secondary"}
-              onClick={() => setFilter(f)}
-            >
-              {f === "today" ? "今天" : f === "week" ? "本周" : "全部"}
-            </Button>
-          ))}
           <Button size="sm" onClick={() => setDraft(emptyManual())}>
             记一笔
           </Button>
-        </div>
         }
       />
+      <div className="flex flex-wrap gap-2">
+        {(["today", "week", "all"] as const).map((f) => (
+          <Button
+            key={f}
+            size="sm"
+            variant={filter === f ? "primary" : "secondary"}
+            onClick={() => setFilter(f)}
+          >
+            {f === "today" ? "今天" : f === "week" ? "本周" : "全部"}
+          </Button>
+        ))}
+      </div>
 
       {recorder.live ? (
         <section className="dg-panel p-4">
@@ -84,35 +84,37 @@ export function RecordsPage() {
             action={{ label: "记一笔", onClick: () => setDraft(emptyManual()) }}
           />
         ) : (
-          list.map((r) => (
-            <article key={r.id} className="dg-panel flex flex-col gap-2 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Text variant="body" bold>
-                  {formatClock(r.startedAt)}
-                </Text>
-                <Text variant="secondary" size="xs">
+          <div className="dg-panel overflow-x-auto">
+            <div className="dg-table-row dg-table-head">
+              <span>时间</span>
+              <span>时长</span>
+              <span>最高 A</span>
+              <span>最高 B</span>
+              <span>备注</span>
+              <span>操作</span>
+            </div>
+            {list.map((r) => (
+              <div key={r.id} className="dg-table-row">
+                <Text variant="body">{formatClock(r.startedAt)}</Text>
+                <Text variant="secondary" size="sm">
                   {formatDuration(r.durationMs)}
-                  {r.tag ? ` · ${r.tag}` : ""}
                 </Text>
-              </div>
-              <Text variant="secondary" size="xs">
-                最高 A {r.maxA} / B {r.maxB} · 急停 {r.stops}
-              </Text>
-              {r.note ? (
-                <Text variant="secondary" DANGEROUS_className="truncate">
-                  {r.note}
+                <span className="dg-gold">{r.maxA}</span>
+                <span className="dg-gold">{r.maxB}</span>
+                <Text variant="secondary" size="sm">
+                  {r.note || "—"}
                 </Text>
-              ) : null}
-              <div className="flex gap-2">
-                <Button size="sm" variant="secondary" onClick={() => setShare(r)}>
-                  分享
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setRemoveId(r.id)}>
-                  删除
-                </Button>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="secondary" onClick={() => setShare(r)}>
+                    分享
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setRemoveId(r.id)}>
+                    删除
+                  </Button>
+                </div>
               </div>
-            </article>
-          ))
+            ))}
+          </div>
         )}
       </div>
 

@@ -12,7 +12,7 @@ export function ConsolePage() {
   const paired = relay.state === "paired";
 
   return (
-    <div className="flex flex-col gap-6">
+    <>
       <PageHeader
         title="控制台"
         description="实时强度与本次会话摘要"
@@ -22,11 +22,11 @@ export function ConsolePage() {
               variant="secondary"
               size="sm"
               onClick={() => {
-                const note = settings.askNote ? window.prompt("备注（可空）") ?? "" : "";
+                const note = settings.askNote ? (window.prompt("备注（可空）") ?? "") : "";
                 recorder.endSession({ note });
               }}
             >
-              结束并保存
+              结束会话
             </Button>
           ) : null
         }
@@ -40,7 +40,7 @@ export function ConsolePage() {
         />
       ) : (
         <>
-          <section className="dg-panel grid gap-4 p-5 sm:grid-cols-4">
+          <section className="dg-kpi sm:grid-cols-4">
             <Stat label="状态" value={labelOf(relay.state)} />
             <Stat
               label="本次时长"
@@ -49,24 +49,22 @@ export function ConsolePage() {
             <Stat label="最高 A" value={String(recorder.live?.maxA ?? 0)} />
             <Stat label="最高 B" value={String(recorder.live?.maxB ?? 0)} />
           </section>
-          <section className="dg-panel p-5">
-            <StrengthPanel
-              a={strength.local.a}
-              b={strength.local.b}
-              aLimit={strength.limits.a}
-              bLimit={strength.limits.b}
-              canControl={canControl}
-              onSet={strength.setChannel}
-              onNudge={strength.nudge}
-              onStop={emergencyStop}
-              onBlocked={requirePaired}
-              showStop={false}
-              split
-            />
-          </section>
+          <StrengthPanel
+            a={strength.local.a}
+            b={strength.local.b}
+            aLimit={strength.limits.a}
+            bLimit={strength.limits.b}
+            canControl={canControl}
+            onSet={strength.setChannel}
+            onNudge={strength.nudge}
+            onStop={emergencyStop}
+            onBlocked={requirePaired}
+            showStop={false}
+            split
+          />
         </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -74,7 +72,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="dg-muted text-xs">{label}</div>
-      <div>{value}</div>
+      <div className="mt-1 text-lg font-medium text-[var(--dg-gold)]">{value}</div>
     </div>
   );
 }

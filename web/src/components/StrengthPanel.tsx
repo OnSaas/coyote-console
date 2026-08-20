@@ -39,12 +39,13 @@ export function StrengthPanel({
         if (!canControl) onBlocked?.();
       }}
     >
-      <div className={split ? "grid gap-6 md:grid-cols-2" : "flex flex-col gap-5"}>
+      <div className={split ? "grid gap-4 md:grid-cols-2" : "flex flex-col gap-5"}>
         <ChannelRow
           label="A"
           value={a}
           max={aLimit}
           disabled={!canControl}
+          boxed={split}
           onSet={(v, imm) => onSet(1, v, imm)}
           onNudge={(up) => onNudge(1, up)}
         />
@@ -53,6 +54,7 @@ export function StrengthPanel({
           value={b}
           max={bLimit}
           disabled={!canControl}
+          boxed={split}
           onSet={(v, imm) => onSet(2, v, imm)}
           onNudge={(up) => onNudge(2, up)}
         />
@@ -71,6 +73,7 @@ function ChannelRow({
   value,
   max,
   disabled,
+  boxed,
   onSet,
   onNudge,
 }: {
@@ -78,13 +81,14 @@ function ChannelRow({
   value: number;
   max: number;
   disabled: boolean;
+  boxed?: boolean;
   onSet: (value: number, immediate?: boolean) => void;
   onNudge: (up: boolean) => void;
 }) {
   const cap = Math.max(0, Math.min(200, max || 200));
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={boxed ? "dg-panel flex flex-col gap-4 p-6" : "flex flex-col gap-2"}>
       <div className="flex items-baseline justify-between">
         <Text variant="body" bold>
           {label} 通道

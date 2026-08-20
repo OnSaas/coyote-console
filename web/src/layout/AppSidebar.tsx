@@ -1,14 +1,16 @@
 import { Button } from "@cloudflare/kumo/components/button";
 import { Sidebar, useSidebar } from "@cloudflare/kumo/components/sidebar";
 import { Text } from "@cloudflare/kumo/components/text";
-import { CaretLeft, CaretRight, Lightning } from "@phosphor-icons/react";
-import { useLocation, useNavigate } from "react-router-dom";
 import {
+  CaretLeft,
+  CaretRight,
   ChartBar,
   GearSix,
+  Lightning,
   Link,
   Waveform,
 } from "@phosphor-icons/react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const NAV = [
   { to: "/", label: "控制台", icon: Lightning },
@@ -22,9 +24,9 @@ export function AppSidebar() {
   const { open, isMobile, setOpen } = useSidebar();
 
   return (
-    <Sidebar className="border-r border-[var(--dg-border)] bg-[var(--dg-surface)]">
+    <Sidebar className="border-r border-[var(--dg-border)] bg-[var(--dg-sidebar)]">
       <Sidebar.Header>
-        <div className="flex h-12 items-center justify-between gap-1 px-2">
+        <div className="flex h-14 items-center justify-between gap-1 px-3">
           <div className="flex min-w-0 items-center gap-2">
             <Lightning size={20} weight="fill" className="dg-gold shrink-0" />
             {open || isMobile ? (
@@ -68,9 +70,9 @@ function NavItems() {
             icon={item.icon}
             active={active}
             tooltip={item.label}
-            className={active ? "dg-nav-active" : undefined}
+            className={`min-h-10 ${active ? "dg-nav-active" : ""}`}
             onClick={() => {
-              nav(item.to);
+              if (!active) nav(item.to);
               if (isMobile) setOpenMobile(false);
             }}
           >

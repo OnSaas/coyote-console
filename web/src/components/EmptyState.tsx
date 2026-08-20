@@ -13,8 +13,8 @@ interface Props {
 export function EmptyState({ icon: IconCmp, title, description, action }: Props) {
   const nav = useNavigate();
   return (
-    <div className="dg-panel flex flex-col items-center gap-3 px-6 py-12 text-center">
-      <IconCmp size={36} className="dg-gold" />
+    <div className="dg-panel flex min-h-[320px] w-full flex-col items-center justify-center gap-4 px-8 py-16 text-center">
+      <IconCmp size={40} className="dg-gold" />
       <Text variant="heading3" as="h2">
         {title}
       </Text>

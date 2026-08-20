@@ -30,7 +30,7 @@ export function AppTopbar() {
   const shortId = relay.targetId ? relay.targetId.slice(0, 8) : "";
 
   return (
-    <header className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b border-white/10 bg-[var(--dg-surface)] px-2 pt-[env(safe-area-inset-top)] sm:h-14 sm:px-3">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-[var(--dg-border)] bg-[var(--dg-bg)] px-4 pt-[env(safe-area-inset-top)]">
       <Sidebar.Trigger aria-label="菜单" />
       <Badge variant={badge.variant}>{badge.label}</Badge>
       {showId ? (

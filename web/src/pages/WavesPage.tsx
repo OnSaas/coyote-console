@@ -127,7 +127,7 @@ export function WavesPage() {
         <Text variant="heading3" as="h2">
           内置
         </Text>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
           {WAVE_PRESETS.map((w) => (
             <WaveCard
               key={w.id}
@@ -155,7 +155,7 @@ export function WavesPage() {
             action={{ label: "导入", onClick: () => fileRef.current?.click() }}
           />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
             {waves.map((w) => (
               <WaveCard
                 key={w.id}

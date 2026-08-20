@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Sidebar } from "@cloudflare/kumo/components/sidebar";
 import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
@@ -31,13 +31,20 @@ export function AppShell() {
       defaultOpen
       collapsible="icon"
       mobileBreakpoint={768}
+      animationDuration={180}
+      style={
+        {
+          "--sidebar-width": "240px",
+          "--sidebar-width-icon": "64px",
+        } as CSSProperties
+      }
     >
-      <div className="flex min-h-dvh bg-[var(--dg-bg)] text-[var(--dg-text)]">
+      <div className="dg-shell">
         <AppSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="dg-main">
           <AppTopbar />
-          <main className="flex-1 overflow-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <div className="mx-auto max-w-5xl px-4 py-6 md:px-6">
+          <main className="dg-content">
+            <div className="dg-content-inner flex flex-col gap-6">
               <Outlet />
             </div>
           </main>
